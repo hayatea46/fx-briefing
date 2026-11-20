@@ -1,11 +1,18 @@
 name: datapack
 on:
   schedule:
-    - cron: "41 9 * * 1-5"    # 平日18:41(日本時間)。GitHubの定時実行は数分〜十数分遅れることがある
-    - cron: "11 10 * * 1-5"   # 予備：19:11
-  workflow_dispatch:           # 手動実行ボタン
+    - cron: "23 22 * * 0-4"   # 朝   07:23(日本時間) 月〜金：前日までの確定足で今日の方向
+    - cron: "53 9 * * 1-5"    # 夕方 18:53：朝の方向がまだ生きているか確認
+    - cron: "3 11-16 * * 1-5" # 夜   20:03〜翌01:03 毎時：推奨と価格帯をスマホへ通知
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "morning / evening / hourly（空なら時刻で自動判定）"
+        required: false
+        default: ""
 permissions:
   contents: write
+concurrency: datapack
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -17,11 +24,13 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python datapack.py
         env:
+          MODE: ${{ github.event.inputs.mode }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       - run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
           git add docs
-          git commit -m "datapack $(date +%F)" || echo "no change"
+          git commit -m "datapack $(date +%F_%H%M)" || echo "no change"
           git pull --rebase
           git push

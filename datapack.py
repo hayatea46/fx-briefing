@@ -20,7 +20,7 @@ CFG = json.load(open(os.path.join(os.path.dirname(__file__), "config.json"), enc
 # ---------------------------------------------------------------- 取得
 def fetch_yf_hourly(ticker: str) -> pd.DataFrame:
     import yfinance as yf
-    df = yf.download(ticker, period="60d", interval="1h", auto_adjust=False, progress=False)
+    df = yf.download(ticker, period="365d", interval="1h", auto_adjust=False, progress=False)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df[["Open", "High", "Low", "Close"]].dropna()
@@ -30,7 +30,7 @@ def fetch_yf_hourly(ticker: str) -> pd.DataFrame:
 
 def fetch_twelvedata_hourly(symbol: str, key: str) -> pd.DataFrame:
     url = ("https://api.twelvedata.com/time_series?symbol=" + urllib.request.quote(symbol)
-           + "&interval=1h&outputsize=1500&timezone=UTC&apikey=" + key)
+           + "&interval=1h&outputsize=5000&timezone=UTC&apikey=" + key)
     data = json.load(urllib.request.urlopen(url, timeout=30))
     if "values" not in data:
         raise RuntimeError(f"twelvedata error: {data}")
@@ -48,9 +48,9 @@ def fetch_calendar() -> list:
 
 # ---------------------------------------------------------------- 計算
 def to_daily(h1: pd.DataFrame) -> pd.DataFrame:
-    """1時間足→日足（UTC日付。日曜の数時間は月曜に含める）"""
-    day = h1.index.normalize()
-    day = day + pd.to_timedelta((h1.index.dayofweek == 6).astype(int), unit="D")
+    """1時間足→日足。NYクローズ(17:00 NY＝冬7:00/夏6:00 JST)で区切る＝朝には前日が確定している"""
+    ny = h1.index.tz_convert("America/New_York")
+    day = (ny + pd.Timedelta(hours=7)).normalize().tz_localize(None)
     g = h1.groupby(day)
     d = pd.DataFrame({"Open": g["Open"].first(), "High": g["High"].max(),
                       "Low": g["Low"].min(), "Close": g["Close"].last()})
@@ -183,7 +183,7 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
 
     stale_h = (now_utc - last_bar).total_seconds() / 3600
     return {
-        "symbol": name, "source": inst["source"], "price": price,
+        "symbol": name, "digits": inst["digits"], "source": h1.attrs.get("source", inst["source"]), "price": price,
         "last_bar_jst": last_bar.astimezone(JST).strftime("%Y-%m-%d %H:%M"), "stale": stale_h > 3,
         "atr_d1": atr_d1, "atr_h1": atr_h1, "range_used_pct": float(range_used),
         **e, "trend_h1": th1, "trend_h4": th4, "trend_score": ts,
@@ -214,32 +214,170 @@ def events_window(cal: list, now_utc: datetime, hours: int) -> list:
     return sorted(out, key=lambda x: x["time_jst"])
 
 
+# ---------------------------------------------------------------- 朝の方向
+def morning_bias(h1: pd.DataFrame) -> dict:
+    """前日までの確定足で今日の方向を決める（-5〜+5点）"""
+    d1 = to_daily(h1)
+    h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
+    prev, prev2 = d1.iloc[-2], d1.iloc[-3]
+    de20, de75 = float(ema(d1["Close"], 20).iloc[-2]), float(ema(d1["Close"], 75).iloc[-2])
+    c = float(prev.Close)
+    d_tr = 2 if c > de20 > de75 else -2 if c < de20 < de75 else (1 if de20 > de75 else -1 if de20 < de75 else 0)
+    price = float(h1["Close"].iloc[-1])
+    h4_tr = trend_score(price, *[float(ema(h4["Close"], n).iloc[-2]) for n in (20, 75, 200)])
+    struct = 1 if c > prev2.High else -1 if c < prev2.Low else 0
+    total = d_tr + h4_tr + struct
+    bias = "LONG" if total >= 3 else "SHORT" if total <= -3 else "WAIT"
+    invalid = float(prev.Low) if bias == "LONG" else float(prev.High) if bias == "SHORT" else None
+    note = ""
+    if bias == "LONG" and price < invalid or bias == "SHORT" and price > invalid:
+        note = f"点数は{bias}だが朝の時点で前日の{'安値' if bias == 'LONG' else '高値'}を抜けている"
+        bias, invalid = "WAIT", None
+    return {"bias": bias, "note": note, "score": total, "d1_trend": d_tr, "h4_trend": h4_tr, "structure": struct,
+            "invalid_level": invalid, "prev_day": {k: float(prev[k]) for k in ("Open", "High", "Low", "Close")},
+            "ema20_d1": de20, "ema75_d1": de75}
+
+
+def check_bias(m: dict, h1: pd.DataFrame, since_utc: datetime, trend_h1: int) -> str:
+    """朝の方向が今も生きているか：無効 / 弱まった / 維持"""
+    if m["bias"] == "WAIT":
+        return "WAIT"
+    closes = h1.loc[h1.index >= pd.Timestamp(since_utc)]["Close"]
+    if m["bias"] == "LONG" and (closes < m["invalid_level"]).any():
+        return "無効"
+    if m["bias"] == "SHORT" and (closes > m["invalid_level"]).any():
+        return "無効"
+    if m["bias"] == "LONG" and trend_h1 < 0 or m["bias"] == "SHORT" and trend_h1 > 0:
+        return "弱まった"
+    return "維持"
+
+
+def night_side(m: dict, status: str, a: dict) -> tuple[str, str]:
+    """夜の推奨：朝の方向と同じ向きか見送りの2択"""
+    if status in ("WAIT", "無効"):
+        return "WAIT", "朝の方向なし" if status == "WAIT" else "朝の方向が無効化"
+    side = m["bias"]
+    th1 = a["trend_h1"]
+    cand = a["long"] if side == "LONG" else a["short"]
+    if (side == "LONG" and th1 < 1) or (side == "SHORT" and th1 > -1):
+        return "WAIT", "1時間足が揃っていない"
+    if not cand or not cand["rr"] or cand["rr"] < 1.5:
+        return "WAIT", "RRが1.5未満"
+    return side, ""
+
+# ---------------------------------------------------------------- 文章（夜の毎時報告はスクリプトが書く）
+EV_JA = {"Unemployment Claims": "新規失業保険申請件数", "Non-Farm Employment Change": "雇用統計(非農業部門)",
+         "Unemployment Rate": "失業率", "CPI m/m": "消費者物価指数(前月比)", "Core CPI m/m": "コアCPI(前月比)",
+         "Core PCE Price Index m/m": "コアPCE(前月比)", "Federal Funds Rate": "FOMC政策金利",
+         "FOMC Statement": "FOMC声明", "FOMC Press Conference": "FOMC会見", "ISM Manufacturing PMI": "ISM製造業",
+         "ISM Services PMI": "ISM非製造業", "Retail Sales m/m": "小売売上高", "Advance GDP q/q": "GDP速報",
+         "JOLTS Job Openings": "JOLTS求人", "ADP Non-Farm Employment Change": "ADP雇用",
+         "CB Consumer Confidence": "消費者信頼感", "Prelim UoM Consumer Sentiment": "ミシガン大学消費者信頼感",
+         "PPI m/m": "生産者物価指数", "FOMC Meeting Minutes": "FOMC議事録"}
+SIDE_JA = {"LONG": "ロング推奨", "SHORT": "ショート推奨", "WAIT": "見送り"}
+BIAS_JA = {"LONG": "ロング", "SHORT": "ショート", "WAIT": "方向なし"}
+
+
+def hourly_text(pack: dict) -> str:
+    now = pack["generated_jst"][11:]
+    lines = [f"【{now} 状況】"]
+    for p in pack["pairs"]:
+        n = p["night"]
+        head = f"{p['symbol']}：{SIDE_JA[n['side']]}"
+        if n["side"] == "WAIT":
+            why = n["reason"] if n["status"] == "WAIT" else f"{n['reason']}／朝:{BIAS_JA[p['morning']['bias']]}→{n['status']}"
+            lines.append(f"・{head}（{why}）")
+        else:
+            c = p["long"] if n["side"] == "LONG" else p["short"]
+            d = p.get("digits", 5)
+            f = lambda v: f"{v:.{d}f}"
+            lines.append(f"・{head} ゾーン {f(c['zone_lo'])}〜{f(c['zone_hi'])}／損切 {f(c['sl'])}／利確 {f(c['tp'])}"
+                         f"（RR {c['rr']}）／{c['lots']}lot")
+    nxt = [e for e in (pack["events"] or []) if e["impact"] == "High"]
+    if nxt:
+        lines.append("重要指標：" + "、".join(f"{e['time_jst'][6:]} {e['currency']} {EV_JA.get(e['title'], e['title'])}" for e in nxt[:3])
+                     + "（前後15分は入らない）")
+    if pack["errors"]:
+        lines.append("※取得エラー：" + " / ".join(pack["errors"]))
+    lines.append("※水準は無料データ基準。発注前に自分のチャートで確認")
+    return "\n".join(lines)
+
+
+def push(title: str, text: str):
+    topic = os.environ.get("NTFY_TOPIC", "")
+    if not topic:
+        return
+    body = json.dumps({"topic": topic, "title": title, "message": text}).encode()
+    urllib.request.urlopen(urllib.request.Request("https://ntfy.sh/", data=body,
+                           headers={"Content-Type": "application/json"}), timeout=30)
+
+# ---------------------------------------------------------------- 実行
+def pick_mode(now_jst: datetime) -> str:
+    forced = os.environ.get("MODE", "")
+    if forced:
+        return forced
+    h = now_jst.hour
+    if 5 <= h < 12:
+        return "morning"
+    if 17 <= h < 20 and not (h == 19 and now_jst.minute >= 45):
+        return "evening"
+    return "hourly"
+
+
 def main():
     now = datetime.now(timezone.utc)
+    now_jst = now.astimezone(JST)
+    mode = pick_mode(now_jst)
+    trade_day = (now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
+    state_path = f"docs/state/{trade_day}.json"
     errors, data, rates = [], {}, {}
     td_key = os.environ.get("TWELVEDATA_API_KEY", "")
-    # レート換算用に先に為替を取る
     for name, inst in CFG["instruments"].items():
         try:
             if inst["source"] == "twelvedata" and td_key:
                 data[name] = fetch_twelvedata_hourly(inst["ticker"], td_key)
             elif inst["source"] == "twelvedata":
                 # キー未設定時は先物で代用（現物と数ドル〜数十ドルずれる）
-                inst["source"] = "yfinance:" + inst["fallback_ticker"] + "(先物で代用)"
                 data[name] = fetch_yf_hourly(inst["fallback_ticker"])
+                data[name].attrs["source"] = inst["fallback_ticker"] + "(先物で代用)"
+                errors.append(f"{name}: Twelve Dataキー未設定のため先物({inst['fallback_ticker']})で代用")
             else:
                 data[name] = fetch_yf_hourly(inst["ticker"])
             rates[name] = float(data[name]["Close"].iloc[-1])
-        except Exception as ex:  # 1銘柄の失敗で全体を止めない
+        except Exception as ex:
             errors.append(f"{name}: {ex}")
+
+    # 朝の方向：朝は新規作成、それ以外は保存済みを読む（無ければその場で作る）
+    if mode != "morning" and os.path.exists(state_path):
+        state = json.load(open(state_path, encoding="utf-8"))
+    else:
+        state = {"created_jst": now_jst.strftime("%Y-%m-%d %H:%M"), "created_utc": now.isoformat(), "pairs": {}}
+        for name, df in data.items():
+            try:
+                state["pairs"][name] = rnd(morning_bias(df), CFG["instruments"][name]["digits"])
+            except Exception as ex:
+                errors.append(f"{name} morning: {ex}")
+        if mode != "morning":
+            errors.append("朝の方向が未作成だったため、いま作成")
+        os.makedirs("docs/state", exist_ok=True)
+        json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    since = datetime.fromisoformat(state["created_utc"])
+
     pairs = []
     for name in CFG["instruments"]:
-        if name in data:
-            try:
-                inst_digits = CFG["instruments"][name]["digits"]
-                pairs.append(rnd(analyze(name, data[name], rates, now), inst_digits))
-            except Exception as ex:
-                errors.append(f"{name} analyze: {ex}")
+        if name not in data or name not in state["pairs"]:
+            continue
+        try:
+            dg = CFG["instruments"][name]["digits"]
+            a = rnd(analyze(name, data[name], rates, now), dg)
+            m = state["pairs"][name]
+            status = check_bias(m, data[name], since, a["trend_h1"])
+            side, reason = night_side(m, status, a)
+            a["morning"] = m
+            a["night"] = {"status": status, "side": side, "reason": reason}
+            pairs.append(a)
+        except Exception as ex:
+            errors.append(f"{name} analyze: {ex}")
     macro = {}
     for key, tk in CFG["macro"].items():
         try:
@@ -250,20 +388,27 @@ def main():
         except Exception as ex:
             errors.append(f"{key}: {ex}")
     try:
-        events = events_window(fetch_calendar(), now, CFG["event_hours"])
+        events = events_window(fetch_calendar(), now, CFG["event_hours"] if mode != "morning" else 20)
     except Exception as ex:
         events = None
         errors.append(f"calendar: {ex}")
 
-    pairs.sort(key=lambda p: -p["score"])
-    pack = {"generated_jst": now.astimezone(JST).strftime("%Y-%m-%d %H:%M"),
-            "equity_jpy": CFG["equity_jpy"], "risk_pct": CFG["risk_pct"],
-            "rules_version": CFG["rules_version"], "macro": macro, "events": events,
-            "pairs": pairs, "errors": errors}
+    order = {"LONG": 0, "SHORT": 0, "WAIT": 1}
+    pairs.sort(key=lambda p: (order[p["night"]["side"]], -abs(p["morning"]["score"])))
+    pack = {"mode": mode, "trade_day": trade_day, "generated_jst": now_jst.strftime("%Y-%m-%d %H:%M"),
+            "equity_jpy": CFG["equity_jpy"], "risk_pct": CFG["risk_pct"], "rules_version": CFG["rules_version"],
+            "macro": macro, "events": events, "pairs": pairs, "errors": errors}
+    pack["text"] = hourly_text(pack)
     os.makedirs("docs/archive", exist_ok=True)
-    for path in ("docs/datapack.json", f"docs/archive/{now.astimezone(JST):%Y-%m-%d}.json"):
+    for path in (f"docs/{mode}.json", "docs/datapack.json",
+                 f"docs/archive/{trade_day}_{now_jst:%H%M}_{mode}.json"):
         json.dump(pack, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(json.dumps({"pairs": len(pairs), "errors": errors}, ensure_ascii=False))
+    print(pack["text"])
+    if mode == "hourly":
+        try:
+            push(f"FX {now_jst:%H:%M}", pack["text"])
+        except Exception as ex:
+            print("push failed:", ex)
     if not pairs:
         sys.exit(1)
 
