@@ -228,6 +228,61 @@ def events_window(cal: list, now_utc: datetime, hours: int) -> list:
     return sorted(out, key=lambda x: x["iso"])
 
 
+# ---------------------------------------------------------------- 引く線
+LEVEL_JA = {"prev_high": "前日高値", "prev_low": "前日安値", "today_high": "今日の高値", "today_low": "今日の安値",
+            "prev_week_high": "前週高値", "prev_week_low": "前週安値", "pivot": "ピボット", "r1": "R1", "r2": "R2",
+            "s1": "S1", "s2": "S2", "round_below": "キリ番", "round_above": "キリ番"}
+
+
+def swings(h4: pd.DataFrame, kind: str, n: int = 2, lookback: int = 90) -> list:
+    """4時間足の山・谷（前後n本より高い/低い足）"""
+    df = h4.iloc[-lookback:-1]
+    vals = df["Low"] if kind == "low" else df["High"]
+    out = []
+    for i in range(n, len(df) - n):
+        w = vals.iloc[i - n:i + n + 1]
+        v = float(vals.iloc[i])
+        if (kind == "low" and v == float(w.min())) or (kind == "high" and v == float(w.max())):
+            out.append((df.index[i], v))
+    return out
+
+
+def trend_line(h1: pd.DataFrame, bias: str, now_utc: datetime) -> dict | None:
+    """ロングは切り上がる谷2つ、ショートは切り下がる山2つを結ぶ。現在値が線を割っていれば出さない"""
+    if bias not in ("LONG", "SHORT"):
+        return None
+    h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
+    pts = swings(h4, "low" if bias == "LONG" else "high")
+    if len(pts) < 2:
+        return None
+    p2 = pts[-1]
+    p1 = next((p for p in reversed(pts[:-1]) if (p[1] < p2[1] if bias == "LONG" else p[1] > p2[1])), None)
+    if not p1:
+        return None
+    hours = (p2[0] - p1[0]).total_seconds() / 3600
+    slope = (p2[1] - p1[1]) / hours
+    now_val = p2[1] + slope * (pd.Timestamp(now_utc) - p2[0]).total_seconds() / 3600
+    price = float(h1["Close"].iloc[-1])
+    if (bias == "LONG" and price < now_val) or (bias == "SHORT" and price > now_val):
+        return None
+    j = lambda t: t.tz_convert(JST).strftime("%m/%d %H:%M")
+    return {"from_jst": j(p1[0]), "from_price": p1[1], "to_jst": j(p2[0]), "to_price": p2[1], "now": float(now_val)}
+
+
+def key_lines(levels: dict, price: float, k: int = 2) -> dict:
+    """現在値に近い水平線を上下k本ずつ（同じ価格は1本にまとめる）"""
+    seen, above, below = set(), [], []
+    for name, v in sorted(levels.items(), key=lambda kv: abs(kv[1] - price)):
+        if name.startswith("today_"):   # 朝の時点では今日の高安はまだ意味がない
+            continue
+        key = round(v, 6)
+        if key in seen:
+            continue
+        seen.add(key)
+        (above if v >= price else below).append({"name": LEVEL_JA.get(name, name), "price": v})
+    return {"above": sorted(above[:k], key=lambda x: x["price"]), "below": sorted(below[:k], key=lambda x: -x["price"])}
+
+
 # ---------------------------------------------------------------- 朝の方向
 def morning_bias(h1: pd.DataFrame) -> dict:
     """前日までの確定足で今日の方向を決める（-5〜+5点）"""
@@ -426,6 +481,26 @@ def pair_line(p: dict) -> str:
             f"／利確 {fmt(p, c['tp'])}（RR {c['rr']}）／{c['lots']}lot／撤退ライン {fmt(p, m['invalid_level'])}／{left}")
 
 
+def draw_lines(pack: dict) -> list:
+    """朝だけ出す：方向ありペアの引く線"""
+    out = []
+    for p in pack["pairs"]:
+        m = p["morning"]
+        if m["bias"] == "WAIT":
+            continue
+        h, t = p["lines"]["horizontal"], p["lines"]["trend"]
+        hz = lambda xs: "・".join(f"{fmt(p, x['price'])}({x['name']})" for x in xs) or "なし"
+        c = p["long"] if m["bias"] == "LONG" else p["short"]
+        out.append(f"・{p['symbol']}（{BIAS_JA[m['bias']]}）")
+        out.append(f"  水平線 上：{hz(h['above'])}／下：{hz(h['below'])}")
+        out.append(f"  撤退ライン：{fmt(p, m['invalid_level'])}")
+        if c:
+            out.append(f"  ゾーン（朝時点・夜に更新）：{fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}")
+        out.append(f"  トレンド線：{t['from_jst']} {fmt(p, t['from_price'])} → {t['to_jst']} {fmt(p, t['to_price'])}（今は{fmt(p, t['now'])}付近）"
+                   if t else "  トレンド線：条件に合う線なし")
+    return (["［引く線（4時間足基準）］"] + out) if out else []
+
+
 def build_text(pack: dict) -> str:
     mode, pairs = pack["mode"], pack["pairs"]
     t = pack["generated_jst"][11:]
@@ -438,6 +513,7 @@ def build_text(pack: dict) -> str:
                 lines.append(f"・{p['symbol']}：方向なし（点数{m['score']:+d}{'／' + m['note'] if m.get('note') else ''}）")
             else:
                 lines.append(f"・{p['symbol']}：{BIAS_JA[m['bias']]}（点数{m['score']:+d}）撤退ライン {fmt(p, m['invalid_level'])}")
+        lines += draw_lines(pack)
         lines += schedule_lines(pack, False) + review_lines(pack.get("review"))
     else:
         live = [p for p in pairs if p["night"]["status"] in ("維持", "弱まった")]
@@ -552,6 +628,9 @@ def main():
             side, reason = night_side(m, status, a)
             a["morning"] = m
             a["night"] = {"status": status, "side": side, "reason": reason}
+            a["lines"] = {"horizontal": key_lines(a["levels"], a["price"]),
+                          "trend": trend_line(data[name], m["bias"], now)}
+            a = rnd(a, dg)
             pairs.append(a)
         except Exception as ex:
             errors.append(f"{name} analyze: {ex}")
