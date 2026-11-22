@@ -123,7 +123,7 @@ def lots_for_risk(sl_dist, contract, jpy_q, equity_jpy, risk_pct, step=0.01):
     return math.floor(lots / step) * step
 
 
-def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict:
+def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime, majors: list | None = None) -> dict:
     d1 = to_daily(h1)
     h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
     price = float(h1["Close"].iloc[-1])
@@ -152,6 +152,8 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
         "round_below": math.floor(price / step) * step,
         "round_above": math.floor(price / step) * step + step,
     }
+    for i, v in enumerate(majors or []):
+        levels[f"major{i}"] = v
     levels = {k: float(v) for k, v in levels.items()}
     below = sorted([(v, k) for k, v in levels.items() if v <= price], reverse=True)
     above = sorted([(v, k) for k, v in levels.items() if v >= price])
@@ -212,7 +214,7 @@ def rnd(o, digits):
     if isinstance(o, float):
         return round(o, digits)
     if isinstance(o, dict):
-        return {k: rnd(v, 0 if k == "range_used_pct" else 1 if k in ("range_left", "dist_pips") else 2 if k in ("rr", "dist_atr", "lots") else digits)
+        return {k: v if k == "slope" else rnd(v, 0 if k == "range_used_pct" else 1 if k in ("range_left", "dist_pips") else 2 if k in ("rr", "dist_atr", "lots") else digits)
                 for k, v in o.items()}
     return o
 
@@ -232,59 +234,88 @@ def events_window(cal: list, now_utc: datetime, hours: int) -> list:
     return sorted(out, key=lambda x: x["iso"])
 
 
-# ---------------------------------------------------------------- 引く線
+# ---------------------------------------------------------------- 引く線（日足・一度引いたら基本そのまま）
 LEVEL_JA = {"prev_high": "前日高値", "prev_low": "前日安値", "today_high": "今日の高値", "today_low": "今日の安値",
             "prev_week_high": "前週高値", "prev_week_low": "前週安値", "pivot": "ピボット", "r1": "R1", "r2": "R2",
-            "s1": "S1", "s2": "S2", "round_below": "キリ番", "round_above": "キリ番"}
+            "s1": "S1", "s2": "S2", "round_below": "キリ番", "round_above": "キリ番", "major": "日足の節目"}
 
 
-def swings(h4: pd.DataFrame, kind: str, n: int = 2, lookback: int = 90) -> list:
-    """4時間足の山・谷（前後n本より高い/低い足）"""
-    df = h4.iloc[-lookback:-1]
-    vals = df["Low"] if kind == "low" else df["High"]
+def swing_points(df: pd.DataFrame, kind: str, n: int) -> list:
+    """山（kind=high）・谷（kind=low）：前後n本より高い/低い確定足。[(位置, 日付, 価格)]"""
+    vals = df["High"] if kind == "high" else df["Low"]
     out = []
     for i in range(n, len(df) - n):
         w = vals.iloc[i - n:i + n + 1]
         v = float(vals.iloc[i])
-        if (kind == "low" and v == float(w.min())) or (kind == "high" and v == float(w.max())):
-            out.append((df.index[i], v))
+        if (kind == "high" and v == float(w.max())) or (kind == "low" and v == float(w.min())):
+            out.append((i, df.index[i], v))
     return out
 
 
-def trend_line(h1: pd.DataFrame, bias: str, now_utc: datetime) -> dict | None:
-    """ロングは切り上がる谷2つ、ショートは切り下がる山2つを結ぶ。現在値が線を割っていれば出さない"""
-    if bias not in ("LONG", "SHORT"):
-        return None
-    h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
-    pts = swings(h4, "low" if bias == "LONG" else "high")
+def update_horizontal(d1: pd.DataFrame, old: list, price: float, atr_d1: float) -> list:
+    """日足の山谷（過去半年）から水平線を作る。
+    追加：現在値±3ATR以内で上下3本まで／既存線：±5ATR以内なら残す（行ったり来たりで引き直さないための余裕）"""
+    hist = d1.iloc[-130:-1]
+    tol = 0.3 * atr_d1
+    keep = [o for o in old if abs(o - price) <= 5 * atr_d1]
+    cands = [v for _, _, v in swing_points(hist, "high", 3)] + [v for _, _, v in swing_points(hist, "low", 3)]
+    above = sorted([v for v in cands if price <= v <= price + 3 * atr_d1])
+    below = sorted([v for v in cands if price - 3 * atr_d1 <= v < price], reverse=True)
+    out = list(keep)
+    for side in (above, below):
+        n_side = sum(1 for o in out if (o >= price) == (side is above))
+        for v in side:
+            if n_side >= 3:
+                break
+            if any(abs(v - q) < tol for q in out):
+                continue
+            out.append(v)
+            n_side += 1
+    return sorted(set(round(x, 6) for x in out))
+
+
+def update_trend(d1: pd.DataFrame, old: dict | None) -> dict | None:
+    """日足のトレンド線。上昇基調は切り上がる谷2つ、下降基調は切り下がる山2つ。日足終値で割れるまで据え置き"""
+    closes = d1["Close"]
+    e20, e75 = float(ema(closes, 20).iloc[-2]), float(ema(closes, 75).iloc[-2])
+    kind = "up" if e20 > e75 else "down"
+    idx = {d: i for i, d in enumerate(d1.index)}
+
+    def value_at(line, i):
+        return line["p2"] + line["slope"] * (i - idx[pd.Timestamp(line["d2"])])
+
+    if old and old.get("kind") == kind and pd.Timestamp(old["d2"]) in idx:
+        i2 = idx[pd.Timestamp(old["d2"])]
+        broken = any((closes.iloc[i] < value_at(old, i)) if kind == "up" else (closes.iloc[i] > value_at(old, i))
+                     for i in range(i2 + 1, len(d1) - 1))
+        if not broken:
+            return old
+    hist = d1.iloc[-130:-1]
+    pts = swing_points(hist, "low" if kind == "up" else "high", 3)
     if len(pts) < 2:
         return None
+    off = len(d1) - 1 - len(hist)
     p2 = pts[-1]
-    p1 = next((p for p in reversed(pts[:-1]) if (p[1] < p2[1] if bias == "LONG" else p[1] > p2[1])), None)
+    p1 = next((p for p in reversed(pts[:-1]) if (p[2] < p2[2] if kind == "up" else p[2] > p2[2])), None)
     if not p1:
         return None
-    hours = (p2[0] - p1[0]).total_seconds() / 3600
-    slope = (p2[1] - p1[1]) / hours
-    now_val = p2[1] + slope * (pd.Timestamp(now_utc) - p2[0]).total_seconds() / 3600
-    price = float(h1["Close"].iloc[-1])
-    if (bias == "LONG" and price < now_val) or (bias == "SHORT" and price > now_val):
+    slope = (p2[2] - p1[2]) / (p2[0] - p1[0])
+    line = {"kind": kind, "d1": str(p1[1].date()), "p1": p1[2], "d2": str(p2[1].date()), "p2": p2[2], "slope": slope}
+    last = len(d1) - 2
+    if any((closes.iloc[i] < value_at(line, i)) if kind == "up" else (closes.iloc[i] > value_at(line, i))
+           for i in range(p2[0] + off + 1, last + 1)):
         return None
-    j = lambda t: t.tz_convert(JST).strftime("%m/%d %H:%M")
-    return {"from_jst": j(p1[0]), "from_price": p1[1], "to_jst": j(p2[0]), "to_price": p2[1], "now": float(now_val)}
+    return line
 
 
-def key_lines(levels: dict, price: float, k: int = 2) -> dict:
-    """現在値に近い水平線を上下k本ずつ（同じ価格は1本にまとめる）"""
-    seen, above, below = set(), [], []
-    for name, v in sorted(levels.items(), key=lambda kv: abs(kv[1] - price)):
-        if name.startswith("today_"):   # 朝の時点では今日の高安はまだ意味がない
-            continue
-        key = round(v, 6)
-        if key in seen:
-            continue
-        seen.add(key)
-        (above if v >= price else below).append({"name": LEVEL_JA.get(name, name), "price": v})
-    return {"above": sorted(above[:k], key=lambda x: x["price"]), "below": sorted(below[:k], key=lambda x: -x["price"])}
+def trend_now(line: dict | None, d1: pd.DataFrame) -> float | None:
+    if not line:
+        return None
+    idx = {d: i for i, d in enumerate(d1.index)}
+    d2 = pd.Timestamp(line["d2"])
+    if d2 not in idx:
+        return None
+    return line["p2"] + line["slope"] * (len(d1) - 1 - idx[d2])
 
 
 # ---------------------------------------------------------------- 朝の方向
@@ -504,54 +535,37 @@ def pair_line(p: dict) -> str:
             f"（RR {c['rr']}）／{c['lots']}lot／撤退ライン {fmt(p, m['invalid_level'])}／{left}")
 
 
-def line_set(p: dict) -> dict:
-    """そのペアで引くべき線の一覧 {キー: 表示文字列}"""
-    m, ln = p["morning"], p["lines"]
-    out = {}
-    for x in ln["horizontal"]["above"] + ln["horizontal"]["below"]:
-        out[f"h:{fmt(p, x['price'])}"] = f"水平線 {fmt(p, x['price'])}（{x['name']}）"
-    if m.get("invalid_level") is not None:
-        out[f"h:{fmt(p, m['invalid_level'])}"] = f"水平線 {fmt(p, m['invalid_level'])}（撤退ライン：1時間足で抜けたら今日の方向は撤回）"
-    t = ln["trend"]
-    if t:
-        out[f"t:{t['from_jst']}|{t['to_jst']}"] = (f"トレンド線 {t['from_jst']} {fmt(p, t['from_price'])} → "
-                                                   f"{t['to_jst']} {fmt(p, t['to_price'])}（今は{fmt(p, t['now'])}付近）")
-    return out
-
-
 def draw_lines(pack: dict) -> list:
-    """朝だけ：前日から変わった線だけ『引く／消す』を短く指示する"""
-    prev = pack.get("prev_lines") or {}
+    """朝だけ：日足の線が前回から変わったペアだけ『引く／消す』を指示する"""
     out = []
-    short = lambda v: v.split("（")[0].replace("水平線 ", "").replace("トレンド線 ", "トレンド線")
     for p in pack["pairs"]:
-        m = p["morning"]
-        cur = line_set(p) if m["bias"] != "WAIT" else {}
-        old = prev.get(p["symbol"], {})
-        if not cur and not old:
+        ch = p.get("line_changes")
+        if not ch:
             continue
-        head = f"・{p['symbol']} {bias_label(m)}"
-        if not cur:
-            out.append(f"{head}：昨日の線は全部消してOK")
-            continue
-        add = {k: v for k, v in cur.items() if k not in old}
-        rem = [v for k, v in old.items() if k not in cur]
-        if not add and not rem:
-            out.append(f"{head}：前日から変更なし（引き直し不要）")
-            continue
-        out.append(head)
-        if old and not set(old) & set(cur):
-            out.append("  昨日の線は全部消して、次を引く")
-        elif rem:
-            out.append("  消す：" + "・".join(short(v) for v in rem))
-        hz = [v.replace("水平線 ", "") for k, v in add.items() if k.startswith("h:") and "撤退" not in v]
-        if hz:
-            out.append("  引く（水平線）：" + "・".join(hz))
-        out += [f"  引く：{v}" for v in add.values() if "撤退" in v or v.startswith("トレンド線")]
-        c = p["long"] if m["bias"] == "LONG" else p["short"]
-        if c:
-            out.append(f"  ゾーンの目安：{fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}（引かなくてよい・夜の通知で更新）")
-    return (["［スマホのMT5で引いておく線］"] + out) if out else []
+        f = lambda v: fmt(p, v)
+        out.append(f"・{p['symbol']}")
+        if ch["first"]:
+            out.append("  （初回）次の線を引いておく")
+        if ch["remove_h"]:
+            out.append("  消す（水平線）：" + "・".join(f(v) for v in ch["remove_h"]))
+        if ch["add_h"]:
+            out.append("  引く（水平線）：" + "・".join(f(v) for v in ch["add_h"]))
+        if ch["remove_t"]:
+            out.append("  消す：トレンド線（日足終値で割れた／向きが変わった）")
+        t = ch["add_t"]
+        if t:
+            out.append(f"  引く：トレンド線 {t['d1'][5:].replace('-', '/')} {f(t['p1'])} → {t['d2'][5:].replace('-', '/')} {f(t['p2'])}"
+                       f"（{'上昇' if t['kind'] == 'up' else '下降'}・今は{f(p['trend_now'])}付近）")
+    for p in pack["pairs"]:
+        ch = p.get("line_changes")
+        if ch and ch["first"] and not p["lines"]["horizontal"]:
+            out.append(f"・{p['symbol']}：近くに日足の節目なし（水平線は引かなくてよい）")
+    same = [p["symbol"] for p in pack["pairs"] if not p.get("line_changes")]
+    if not out:
+        return ["［スマホのMT5の線］全ペア変更なし（引き直し不要）"]
+    head = ["［スマホのMT5で引いておく線（日足基準）］"]
+    tail = [f"  その他（{'・'.join(same)}）は変更なし"] if same else []
+    return head + out + tail
 
 
 def build_text(pack: dict) -> str:
@@ -669,21 +683,49 @@ def main():
             except Exception as ex:
                 errors.append(f"review: {ex}")
 
+    lines_path = "docs/lines.json"
+    lines_db = json.load(open(lines_path, encoding="utf-8")) if os.path.exists(lines_path) else {}
+    changes = {}
+    if mode == "morning":
+        for name, df in data.items():
+            try:
+                d1 = to_daily(df)
+                price = float(df["Close"].iloc[-1])
+                a_d1 = float(atr(d1).iloc[-2])
+                old = lines_db.get(name, {})
+                hz = update_horizontal(d1, old.get("horizontal", []), price, a_d1)
+                tr = update_trend(d1, old.get("trend"))
+                tol = 1e-9
+                add_h = [v for v in hz if all(abs(v - o) > tol for o in old.get("horizontal", []))]
+                rem_h = [o for o in old.get("horizontal", []) if all(abs(v - o) > tol for v in hz)]
+                t_changed = (tr or {}).get("d2") != (old.get("trend") or {}).get("d2") or \
+                            (tr or {}).get("kind") != (old.get("trend") or {}).get("kind")
+                if add_h or rem_h or t_changed:
+                    changes[name] = {"first": not old, "add_h": add_h, "remove_h": rem_h,
+                                     "add_t": tr if t_changed else None, "remove_t": bool(t_changed and old.get("trend"))}
+                lines_db[name] = {"horizontal": hz, "trend": tr, "updated": trade_day}
+            except Exception as ex:
+                errors.append(f"{name} lines: {ex}")
+        os.makedirs("docs", exist_ok=True)
+        json.dump(lines_db, open(lines_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
     pairs = []
     for name in CFG["instruments"]:
         if name not in data or name not in state["pairs"]:
             continue
         try:
             dg = CFG["instruments"][name]["digits"]
-            a = rnd(analyze(name, data[name], rates, now), dg)
+            ldb = lines_db.get(name, {})
+            a = analyze(name, data[name], rates, now, ldb.get("horizontal"))
+            a["lines"] = {"horizontal": ldb.get("horizontal", []), "trend": ldb.get("trend")}
+            a["trend_now"] = trend_now(ldb.get("trend"), to_daily(data[name]))
+            a["line_changes"] = changes.get(name)
+            a = rnd(a, dg)
             m = state["pairs"][name]
             status = check_bias(m, data[name], since, a["trend_h1"])
             side, reason = night_side(m, status, a)
             a["morning"] = m
             a["night"] = {"status": status, "side": side, "reason": reason}
-            a["lines"] = {"horizontal": key_lines(a["levels"], a["price"]),
-                          "trend": trend_line(data[name], m["bias"], now)}
-            a = rnd(a, dg)
             pairs.append(a)
         except Exception as ex:
             errors.append(f"{name} analyze: {ex}")
@@ -700,8 +742,6 @@ def main():
             last = next((r for r in reversed(state["night_recs"]) if r["symbol"] == p["symbol"]), None)
             if not last or any(last[k] != rec[k] for k in rec):
                 state["night_recs"].append(dict(rec, time_utc=now.isoformat(), time_jst=now_jst.strftime("%H:%M")))
-    if mode == "morning":
-        state["lines"] = {p["symbol"]: line_set(p) for p in pairs if p["morning"]["bias"] != "WAIT"}
     os.makedirs("docs/state", exist_ok=True)
     json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
@@ -733,7 +773,7 @@ def main():
             "peak_stop_jpy": round(CFG["equity_jpy"] * 0.15),
             "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
             "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
-            "review": review, "prev_lines": (prev or {}).get("lines", {}), "pairs": pairs, "errors": errors}
+            "review": review, "pairs": pairs, "errors": errors}
     pack["text"] = build_text(pack)
     os.makedirs("docs/archive", exist_ok=True)
     for path in (f"docs/{mode}.json", "docs/datapack.json",
