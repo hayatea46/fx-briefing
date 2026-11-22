@@ -549,8 +549,16 @@ def draw_lines(pack: dict) -> list:
             out.append("  消す（水平線）：" + "・".join(f(v) for v in ch["remove_h"]))
         if ch["add_h"]:
             out.append("  引く（水平線）：" + "・".join(f(v) for v in ch["add_h"]))
+        if ch["keep_broken"]:
+            b = ch["keep_broken"]
+            out.append(f"  色を変えて残す：割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}"
+                       f"（戻ってきたら今度は{'上値を抑える' if b['kind'] == 'up' else '下値を支える'}壁になりやすい。明日まで）")
+        for b in ch["expire_broken"]:
+            out.append(f"  消す：割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}（役目終了）")
         if ch["remove_t"]:
-            out.append("  消す：トレンド線（1時間足の終値で割れた／向きが変わった）" + ("" if ch["add_t"] else "。今は条件に合う新しい線なし"))
+            out.append("  消す：トレンド線（向きが変わった）" + ("" if ch["add_t"] else "。今は条件に合う新しい線なし"))
+        if ch["keep_broken"] and not ch["add_t"]:
+            out.append("  新しいトレンド線：今は条件に合う線なし")
         t = ch["add_t"]
         if t:
             out.append(f"  引く：トレンド線（1時間足）{t['t1_jst']} {f(t['p1'])} → {t['t2_jst']} {f(t['p2'])}"
@@ -596,7 +604,8 @@ def build_text(pack: dict) -> str:
         lines += ["⚠ " + w for w in pack.get("warnings", [])]
         broken = [p["symbol"] for p in pairs if p.get("trend_broken")]
         if broken:
-            lines.append("📉 1時間足のトレンド線を割った：" + "・".join(broken) + "（その線は消してOK。新しい線は明朝の配信で）")
+            lines.append("📉 1時間足のトレンド線を割った：" + "・".join(broken)
+                         + "（消さずに色を変えて残す。戻ってきたら今度は反対側の壁になりやすい。新しい線は明朝の配信で）")
         lines += schedule_lines(pack, mode == "hourly")
     if pack["errors"]:
         lines.append("※取得エラー：" + " / ".join(pack["errors"]))
@@ -696,16 +705,30 @@ def main():
                 a_d1 = float(atr(d1).iloc[-2])
                 old = lines_db.get(name, {})
                 hz = update_horizontal(d1, old.get("horizontal", []), price, a_d1)
-                tr = update_trend(df, old.get("trend"))
+                old_tr = old.get("trend")
+                tr = update_trend(df, old_tr)
+                # 割れた線は1日だけ残す（戻ってきたら反対側の壁になりやすい）
+                kept, expired, newly_broken = [], [], None
+                for bl in old.get("broken_trends", []):
+                    now_v = trend_now(bl, df)
+                    if bl["broken_day"] < trade_day or now_v is None or abs(now_v - price) > a_d1:
+                        expired.append(bl)
+                    else:
+                        kept.append(bl)
+                if old_tr and tr is not old_tr and trend_broken(old_tr, df):
+                    newly_broken = dict(old_tr, broken_day=trade_day)
+                    kept.append(newly_broken)
                 tol = 1e-9
                 add_h = [v for v in hz if all(abs(v - o) > tol for o in old.get("horizontal", []))]
                 rem_h = [o for o in old.get("horizontal", []) if all(abs(v - o) > tol for v in hz)]
                 t_changed = (tr or {}).get("t2") != (old.get("trend") or {}).get("t2") or \
                             (tr or {}).get("kind") != (old.get("trend") or {}).get("kind")
-                if add_h or rem_h or t_changed:
+                if add_h or rem_h or t_changed or expired:
                     changes[name] = {"first": not old, "add_h": add_h, "remove_h": rem_h,
-                                     "add_t": tr if t_changed else None, "remove_t": bool(t_changed and old.get("trend"))}
-                lines_db[name] = {"horizontal": hz, "trend": tr, "updated": trade_day}
+                                     "add_t": tr if t_changed else None,
+                                     "remove_t": bool(t_changed and old_tr and not newly_broken),
+                                     "keep_broken": newly_broken, "expire_broken": expired}
+                lines_db[name] = {"horizontal": hz, "trend": tr, "broken_trends": kept, "updated": trade_day}
             except Exception as ex:
                 errors.append(f"{name} lines: {ex}")
         os.makedirs("docs", exist_ok=True)
