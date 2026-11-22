@@ -10,6 +10,7 @@ import os
 import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -85,6 +86,17 @@ def round_step(name: str, price: float) -> float:
     if "JPY" in name:
         return 0.5
     return 0.005 if price < 50 else 0.5
+
+
+def pip_size(name: str) -> float:
+    """表示用の1pip（ゴールドは1ドル単位で表示）"""
+    if "XAU" in name:
+        return 1.0
+    return 0.01 if "JPY" in name else 0.0001
+
+
+def pip_unit(name: str) -> str:
+    return "ドル" if "XAU" in name else "pips"
 
 
 def jpy_per_quote(quote: str, rates: dict) -> float | None:
@@ -177,6 +189,7 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
     elif ts <= -2 and short and short["rr"] and short["rr"] >= 1.5:
         side, cand = "SHORT", short
     range_used = (today.High - today.Low) / atr_d1 * 100
+    range_left = max(0.0, atr_d1 - (today.High - today.Low)) / pip_size(name)
     score = 0
     if cand:
         score = abs(ts) + 1 + (1 if cand["dist_atr"] <= 1.0 else 0) - (1 if range_used >= 90 else 0)
@@ -185,7 +198,7 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
     return {
         "symbol": name, "digits": inst["digits"], "source": h1.attrs.get("source", inst["source"]), "price": price,
         "last_bar_jst": last_bar.astimezone(JST).strftime("%Y-%m-%d %H:%M"), "stale": stale_h > 3,
-        "atr_d1": atr_d1, "atr_h1": atr_h1, "range_used_pct": float(range_used),
+        "atr_d1": atr_d1, "atr_h1": atr_h1, "range_used_pct": float(range_used), "range_left": float(range_left),
         **e, "trend_h1": th1, "trend_h4": th4, "trend_score": ts,
         "levels": levels, "long": long, "short": short, "code_side": side, "score": score,
     }
@@ -195,7 +208,8 @@ def rnd(o, digits):
     if isinstance(o, float):
         return round(o, digits)
     if isinstance(o, dict):
-        return {k: rnd(v, 2 if k in ("rr", "dist_atr", "lots", "range_used_pct") else digits) for k, v in o.items()}
+        return {k: rnd(v, 0 if k == "range_used_pct" else 1 if k == "range_left" else 2 if k in ("rr", "dist_atr", "lots") else digits)
+                for k, v in o.items()}
     return o
 
 
@@ -208,10 +222,10 @@ def events_window(cal: list, now_utc: datetime, hours: int) -> list:
             continue
         t = datetime.fromisoformat(ev["date"]).astimezone(timezone.utc)
         if now_utc - timedelta(hours=1) <= t <= now_utc + timedelta(hours=hours):
-            out.append({"time_jst": t.astimezone(JST).strftime("%m-%d %H:%M"), "currency": ev["country"],
+            out.append({"iso": t.isoformat(), "time_jst": t.astimezone(JST).strftime("%m-%d %H:%M"), "currency": ev["country"],
                         "impact": ev["impact"], "title": ev["title"],
                         "forecast": ev.get("forecast", ""), "previous": ev.get("previous", "")})
-    return sorted(out, key=lambda x: x["time_jst"])
+    return sorted(out, key=lambda x: x["iso"])
 
 
 # ---------------------------------------------------------------- 朝の方向
@@ -233,7 +247,7 @@ def morning_bias(h1: pd.DataFrame) -> dict:
     if bias == "LONG" and price < invalid or bias == "SHORT" and price > invalid:
         note = f"点数は{bias}だが朝の時点で前日の{'安値' if bias == 'LONG' else '高値'}を抜けている"
         bias, invalid = "WAIT", None
-    return {"bias": bias, "note": note, "score": total, "d1_trend": d_tr, "h4_trend": h4_tr, "structure": struct,
+    return {"bias": bias, "note": note, "price": price, "score": total, "d1_trend": d_tr, "h4_trend": h4_tr, "structure": struct,
             "invalid_level": invalid, "prev_day": {k: float(prev[k]) for k in ("Open", "High", "Low", "Close")},
             "ema20_d1": de20, "ema75_d1": de75}
 
@@ -263,7 +277,98 @@ def night_side(m: dict, status: str, a: dict) -> tuple[str, str]:
         return "WAIT", "1時間足が揃っていない"
     if not cand or not cand["rr"] or cand["rr"] < 1.5:
         return "WAIT", "RRが1.5未満"
+    # 今日の残り値幅で利確まで届かないなら見送り
+    left_price = a["range_left"] * pip_size(a["symbol"])
+    need = abs(cand["tp"] - (cand["zone_lo"] + cand["zone_hi"]) / 2)
+    if left_price < need:
+        return "WAIT", "今日の残り値幅では利確まで届きにくい"
     return side, ""
+
+# ---------------------------------------------------------------- 時間割・答え合わせ・重複警告
+def session_times(trade_day: str) -> list:
+    """NY株式オープン・ロンドンフィックスの日本時間（夏冬は自動）"""
+    d = datetime.strptime(trade_day, "%Y-%m-%d")
+    items = [(datetime(d.year, d.month, d.day, 9, 30, tzinfo=ZoneInfo("America/New_York")), "NY株式市場オープン（値動きが出やすい）"),
+             (datetime(d.year, d.month, d.day, 16, 0, tzinfo=ZoneInfo("Europe/London")), "ロンドンフィックス（急な値動きに注意）")]
+    return [{"iso": t.astimezone(timezone.utc).isoformat(), "time_jst": t.astimezone(JST).strftime("%m-%d %H:%M"), "title": n}
+            for t, n in items]
+
+
+def build_schedule(events: list | None, trade_day: str) -> list:
+    sch = [dict(x, kind="session") for x in session_times(trade_day)]
+    for e in events or []:
+        if e["impact"] != "High":
+            continue
+        t = datetime.fromisoformat(e["iso"]).astimezone(JST)
+        sch.append({"iso": e["iso"], "time_jst": e["time_jst"], "kind": "event",
+                    "title": f"{e['currency']} {EV_JA.get(e['title'], e['title'])}",
+                    "no_entry": f"{t - timedelta(minutes=15):%H:%M}〜{t + timedelta(minutes=15):%H:%M}"})
+    return sorted(sch, key=lambda x: x["iso"])
+
+
+def bars_of_day(h1: pd.DataFrame, trade_day: str) -> pd.DataFrame:
+    ny = h1.index.tz_convert("America/New_York")
+    lab = (ny + pd.Timedelta(hours=7)).normalize().tz_localize(None)
+    return h1[lab == pd.Timestamp(trade_day)]
+
+
+def review_day(state: dict, data: dict) -> dict:
+    """前の取引日の答え合わせ：朝の方向（NYクローズまで）と夜の推奨（利確/損切りどちらが先か）"""
+    day = state["trade_day"]
+    morning, night = [], []
+    for name, m in state["pairs"].items():
+        if name not in data or m["bias"] == "WAIT":
+            continue
+        bars = bars_of_day(data[name], day)
+        if bars.empty:
+            continue
+        move = float(bars["Close"].iloc[-1]) - m["price"]
+        thr = 0.2 * float(atr(to_daily(data[name])).loc[:pd.Timestamp(day)].iloc[-2])
+        sign = 1 if m["bias"] == "LONG" else -1
+        res = "判定外" if abs(move) < thr else ("的中" if move * sign > 0 else "外れ")
+        morning.append({"symbol": name, "bias": m["bias"], "result": res})
+    for r in state.get("night_recs", []):
+        if r["symbol"] not in data:
+            continue
+        bars = bars_of_day(data[r["symbol"]], day)
+        bars = bars[bars.index > pd.Timestamp(r["time_utc"])]
+        res, entered = "未到達", False
+        for _, b in bars.iterrows():
+            if not entered:
+                entered = b.Low <= r["zone_hi"] if r["side"] == "LONG" else b.High >= r["zone_lo"]
+                if not entered:
+                    continue
+            hit_sl = b.Low <= r["sl"] if r["side"] == "LONG" else b.High >= r["sl"]
+            hit_tp = b.High >= r["tp"] if r["side"] == "LONG" else b.Low <= r["tp"]
+            if hit_sl:          # 同じ足で両方なら損切り扱い（甘く見ない）
+                res = "損切り"; break
+            if hit_tp:
+                res = "利確"; break
+            res = "決着なし"
+        night.append({"symbol": r["symbol"], "side": r["side"], "time_jst": r["time_jst"], "result": res})
+    return {"trade_day": day, "morning": morning, "night": night}
+
+
+CCY_JA = {"USD": "ドル", "JPY": "円", "EUR": "ユーロ", "GBP": "ポンド", "AUD": "豪ドル", "XAU": "金"}
+
+
+def overlap_warnings(pairs: list) -> list:
+    """同じ通貨を同じ向きに賭けている推奨の組み合わせ"""
+    exp = {}
+    for p in pairs:
+        side = p["night"]["side"]
+        if side == "WAIT":
+            continue
+        sg = 1 if side == "LONG" else -1
+        for ccy, v in ((p["symbol"][:3], sg), (p["symbol"][3:], -sg)):
+            exp.setdefault((ccy, v), []).append(p["symbol"])
+    out = []
+    for (ccy, v), syms in exp.items():
+        if len(syms) >= 2 and ccy != "XAU":
+            both = "どちらも" if len(syms) == 2 else "いずれも"
+            one = "どちらか1つ" if len(syms) == 2 else "どれか1つ"
+            out.append(f"{'・'.join(syms)}は{both}「{CCY_JA.get(ccy, ccy)}{'買い' if v > 0 else '売り'}」＝実質同じ賭け。持つなら{one}")
+    return out
 
 # ---------------------------------------------------------------- 文章（夜の毎時報告はスクリプトが書く）
 EV_JA = {"Unemployment Claims": "新規失業保険申請件数", "Non-Farm Employment Change": "雇用統計(非農業部門)",
@@ -278,25 +383,73 @@ SIDE_JA = {"LONG": "ロング推奨", "SHORT": "ショート推奨", "WAIT": "�
 BIAS_JA = {"LONG": "ロング", "SHORT": "ショート", "WAIT": "方向なし"}
 
 
-def hourly_text(pack: dict) -> str:
-    now = pack["generated_jst"][11:]
-    lines = [f"【{now} 状況】"]
-    for p in pack["pairs"]:
-        n = p["night"]
-        head = f"{p['symbol']}：{SIDE_JA[n['side']]}"
-        if n["side"] == "WAIT":
-            why = n["reason"] if n["status"] == "WAIT" else f"{n['reason']}／朝:{BIAS_JA[p['morning']['bias']]}→{n['status']}"
-            lines.append(f"・{head}（{why}）")
+def fmt(p: dict, v) -> str:
+    return "NA" if v is None else f"{v:.{p.get('digits', 5)}f}"
+
+
+def schedule_lines(pack: dict, upcoming_only: bool) -> list:
+    now = datetime.now(timezone.utc) - timedelta(minutes=15)
+    items = [x for x in pack["schedule"] if not upcoming_only or datetime.fromisoformat(x["iso"]) >= now]
+    if not items:
+        return []
+    out = ["［時間割］"]
+    for x in items[:5]:
+        extra = f"→ {x['no_entry']}は入らない" if x.get("no_entry") else ""
+        out.append(f"  {x['time_jst'][6:]} {x['title']}{extra}")
+    return out
+
+
+def review_lines(rv: dict | None) -> list:
+    if not rv:
+        return []
+    m, n = rv["morning"], rv["night"]
+    cnt = lambda lst, k: sum(1 for x in lst if x["result"] == k)
+    out = [f"［前日({rv['trade_day'][5:]})の答え合わせ］"]
+    out.append(f"  朝の方向：的中{cnt(m, '的中')}・外れ{cnt(m, '外れ')}・判定外{cnt(m, '判定外')}" if m else "  朝の方向：方向ありのペアなし")
+    if n:
+        out.append(f"  夜の推奨{len(n)}件：利確{cnt(n, '利確')}・損切り{cnt(n, '損切り')}・未到達{cnt(n, '未到達')}・決着なし{cnt(n, '決着なし')}")
+    return out
+
+
+def pair_line(p: dict) -> str:
+    n, m = p["night"], p["morning"]
+    u = pip_unit(p["symbol"])
+    left = f"残り値幅 約{p['range_left']}{u}（消化{p['range_used_pct']:.0f}%）"
+    if n["side"] == "WAIT":
+        why = n["reason"] if n["status"] == "WAIT" else f"{n['reason']}／朝:{BIAS_JA[m['bias']]}→{n['status']}"
+        return f"・{p['symbol']}：見送り（{why}）"
+    c = p["long"] if n["side"] == "LONG" else p["short"]
+    return (f"・{p['symbol']}：{SIDE_JA[n['side']]} ゾーン {fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}／損切 {fmt(p, c['sl'])}"
+            f"／利確 {fmt(p, c['tp'])}（RR {c['rr']}）／{c['lots']}lot／撤退ライン {fmt(p, m['invalid_level'])}／{left}")
+
+
+def build_text(pack: dict) -> str:
+    mode, pairs = pack["mode"], pack["pairs"]
+    t = pack["generated_jst"][11:]
+    lines = []
+    if mode == "morning":
+        lines.append(f"【朝 {t}　今日の方向】")
+        for p in pairs:
+            m = p["morning"]
+            if m["bias"] == "WAIT":
+                lines.append(f"・{p['symbol']}：方向なし（点数{m['score']:+d}{'／' + m['note'] if m.get('note') else ''}）")
+            else:
+                lines.append(f"・{p['symbol']}：{BIAS_JA[m['bias']]}（点数{m['score']:+d}）撤退ライン {fmt(p, m['invalid_level'])}")
+        lines += schedule_lines(pack, False) + review_lines(pack.get("review"))
+    else:
+        live = [p for p in pairs if p["night"]["status"] in ("維持", "弱まった")]
+        recs = [p for p in pairs if p["night"]["side"] != "WAIT"]
+        if mode == "evening":
+            lines.append(f"【夕方 {t}　朝の方向の確認】")
+            lines.append("結論：" + ("、".join(f"{p['symbol']}({BIAS_JA[p['morning']['bias']]}・{p['night']['status']})" for p in live)
+                                     + " が今夜の候補" if live else "朝の方向が全滅＝今夜は休み"))
         else:
-            c = p["long"] if n["side"] == "LONG" else p["short"]
-            d = p.get("digits", 5)
-            f = lambda v: f"{v:.{d}f}"
-            lines.append(f"・{head} ゾーン {f(c['zone_lo'])}〜{f(c['zone_hi'])}／損切 {f(c['sl'])}／利確 {f(c['tp'])}"
-                         f"（RR {c['rr']}）／{c['lots']}lot")
-    nxt = [e for e in (pack["events"] or []) if e["impact"] == "High"]
-    if nxt:
-        lines.append("重要指標：" + "、".join(f"{e['time_jst'][6:]} {e['currency']} {EV_JA.get(e['title'], e['title'])}" for e in nxt[:3])
-                     + "（前後15分は入らない）")
+            lines.append(f"【{t} 状況】")
+            lines.append("結論：" + ("、".join(f"{p['symbol']} {SIDE_JA[p['night']['side']]}" for p in recs) if recs
+                                     else ("今は全ペア見送り（待つ）" if live else "全ペア見送り＝今夜は休み")))
+        lines += [pair_line(p) for p in pairs]
+        lines += ["⚠ " + w for w in pack.get("warnings", [])]
+        lines += schedule_lines(pack, mode == "hourly")
     if pack["errors"]:
         lines.append("※取得エラー：" + " / ".join(pack["errors"]))
     lines.append("※水準は無料データ基準。発注前に自分のチャートで確認")
@@ -324,13 +477,8 @@ def pick_mode(now_jst: datetime) -> str:
     return "hourly"
 
 
-def main():
-    now = datetime.now(timezone.utc)
-    now_jst = now.astimezone(JST)
-    mode = pick_mode(now_jst)
-    trade_day = (now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
-    state_path = f"docs/state/{trade_day}.json"
-    errors, data, rates = [], {}, {}
+def load_data(errors: list) -> tuple[dict, dict]:
+    data, rates = {}, {}
     td_key = os.environ.get("TWELVEDATA_API_KEY", "")
     for name, inst in CFG["instruments"].items():
         try:
@@ -346,12 +494,31 @@ def main():
             rates[name] = float(data[name]["Close"].iloc[-1])
         except Exception as ex:
             errors.append(f"{name}: {ex}")
+    return data, rates
+
+
+def previous_state(trade_day: str) -> dict | None:
+    if not os.path.isdir("docs/state"):
+        return None
+    days = sorted(f[:-5] for f in os.listdir("docs/state") if f.endswith(".json") and f[:-5] < trade_day)
+    return json.load(open(f"docs/state/{days[-1]}.json", encoding="utf-8")) if days else None
+
+
+def main():
+    now = datetime.now(timezone.utc)
+    now_jst = now.astimezone(JST)
+    mode = pick_mode(now_jst)
+    trade_day = (now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
+    state_path = f"docs/state/{trade_day}.json"
+    errors = []
+    data, rates = load_data(errors)
 
     # 朝の方向：朝は新規作成、それ以外は保存済みを読む（無ければその場で作る）
     if mode != "morning" and os.path.exists(state_path):
         state = json.load(open(state_path, encoding="utf-8"))
     else:
-        state = {"created_jst": now_jst.strftime("%Y-%m-%d %H:%M"), "created_utc": now.isoformat(), "pairs": {}}
+        state = {"trade_day": trade_day, "created_jst": now_jst.strftime("%Y-%m-%d %H:%M"),
+                 "created_utc": now.isoformat(), "pairs": {}, "night_recs": []}
         for name, df in data.items():
             try:
                 state["pairs"][name] = rnd(morning_bias(df), CFG["instruments"][name]["digits"])
@@ -359,9 +526,16 @@ def main():
                 errors.append(f"{name} morning: {ex}")
         if mode != "morning":
             errors.append("朝の方向が未作成だったため、いま作成")
-        os.makedirs("docs/state", exist_ok=True)
-        json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     since = datetime.fromisoformat(state["created_utc"])
+
+    review = None
+    if mode == "morning":
+        prev = previous_state(trade_day)
+        if prev:
+            try:
+                review = review_day(prev, data)
+            except Exception as ex:
+                errors.append(f"review: {ex}")
 
     pairs = []
     for name in CFG["instruments"]:
@@ -378,6 +552,22 @@ def main():
             pairs.append(a)
         except Exception as ex:
             errors.append(f"{name} analyze: {ex}")
+
+    # 夜の推奨を記録（翌朝の答え合わせ用。同じ内容の連続は1件にまとめる）
+    if mode == "hourly":
+        for p in pairs:
+            side = p["night"]["side"]
+            if side == "WAIT":
+                continue
+            c = p["long"] if side == "LONG" else p["short"]
+            rec = {"symbol": p["symbol"], "side": side, "zone_lo": c["zone_lo"], "zone_hi": c["zone_hi"],
+                   "sl": c["sl"], "tp": c["tp"]}
+            last = next((r for r in reversed(state["night_recs"]) if r["symbol"] == p["symbol"]), None)
+            if not last or any(last[k] != rec[k] for k in rec):
+                state["night_recs"].append(dict(rec, time_utc=now.isoformat(), time_jst=now_jst.strftime("%H:%M")))
+    os.makedirs("docs/state", exist_ok=True)
+    json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
     macro = {}
     for key, tk in CFG["macro"].items():
         try:
@@ -394,11 +584,17 @@ def main():
         errors.append(f"calendar: {ex}")
 
     order = {"LONG": 0, "SHORT": 0, "WAIT": 1}
-    pairs.sort(key=lambda p: (order[p["night"]["side"]], -abs(p["morning"]["score"])))
+    if mode == "morning":
+        pairs.sort(key=lambda p: (p["morning"]["bias"] == "WAIT", -abs(p["morning"]["score"])))
+    else:
+        pairs.sort(key=lambda p: (order[p["night"]["side"]], p["night"]["status"] not in ("維持", "弱まった"),
+                                  -abs(p["morning"]["score"])))
     pack = {"mode": mode, "trade_day": trade_day, "generated_jst": now_jst.strftime("%Y-%m-%d %H:%M"),
             "equity_jpy": CFG["equity_jpy"], "risk_pct": CFG["risk_pct"], "rules_version": CFG["rules_version"],
-            "macro": macro, "events": events, "pairs": pairs, "errors": errors}
-    pack["text"] = hourly_text(pack)
+            "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
+            "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
+            "review": review, "pairs": pairs, "errors": errors}
+    pack["text"] = build_text(pack)
     os.makedirs("docs/archive", exist_ok=True)
     for path in (f"docs/{mode}.json", "docs/datapack.json",
                  f"docs/archive/{trade_day}_{now_jst:%H%M}_{mode}.json"):
