@@ -806,9 +806,10 @@ def main():
                  f"docs/archive/{trade_day}_{now_jst:%H%M}_{mode}.json"):
         json.dump(pack, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(pack["text"])
-    if mode == "hourly":
+    if mode in ("hourly", "morning", "evening"):
+        label = {"morning": "朝", "evening": "夕方"}.get(mode, "")
         try:
-            push(f"FX {now_jst:%H:%M}", pack["text"])
+            push(f"FX {label}{now_jst:%H:%M}", pack["text"])
         except Exception as ex:
             print("push failed:", ex)
     if not pairs:
