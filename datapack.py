@@ -614,12 +614,15 @@ def build_text(pack: dict) -> str:
 
 
 def push(title: str, text: str):
-    topic = os.environ.get("NTFY_TOPIC", "")
+    topic = os.environ.get("NTFY_TOPIC", "").strip()
     if not topic:
+        print("ntfy: NTFY_TOPIC が空のため通知しません（GitHubのSecretsを確認）")
         return
     body = json.dumps({"topic": topic, "title": title, "message": text}).encode()
-    urllib.request.urlopen(urllib.request.Request("https://ntfy.sh/", data=body,
-                           headers={"Content-Type": "application/json"}), timeout=30)
+    print(f"ntfy: 送信 {len(body)}バイト（topic {len(topic)}文字）")
+    res = urllib.request.urlopen(urllib.request.Request("https://ntfy.sh/", data=body,
+                                 headers={"Content-Type": "application/json"}), timeout=30)
+    print("ntfy:", res.status, res.read().decode()[:300])
 
 # ---------------------------------------------------------------- 実行
 def pick_mode(now_jst: datetime) -> str:
