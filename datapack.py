@@ -594,6 +594,9 @@ def main():
                                   -abs(p["morning"]["score"])))
     pack = {"mode": mode, "trade_day": trade_day, "generated_jst": now_jst.strftime("%Y-%m-%d %H:%M"),
             "equity_jpy": CFG["equity_jpy"], "risk_pct": CFG["risk_pct"], "rules_version": CFG["rules_version"],
+            "risk_per_trade_jpy": round(CFG["equity_jpy"] * CFG["risk_pct"] / 100),
+            "daily_stop": {"losing_streak": CFG["daily_stop_streak"], "loss_jpy": round(CFG["equity_jpy"] * CFG["daily_stop_pct"] / 100)},
+            "peak_stop_jpy": round(CFG["equity_jpy"] * 0.15),
             "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
             "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
             "review": review, "pairs": pairs, "errors": errors}

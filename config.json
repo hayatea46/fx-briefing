@@ -58,5 +58,7 @@
  "macro": {
   "dxy": "DX-Y.NYB",
   "us10y": "^TNX"
- }
+ },
+ "daily_stop_streak": 3,
+ "daily_stop_pct": 3
 }
