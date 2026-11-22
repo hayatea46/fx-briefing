@@ -1,0 +1,7 @@
+{"trade_day":"2026-11-23","generated_jst":"2026-11-23 08:15","pairs":{
+"GBPUSD":{"direction":"SHORT","reason":"日足・4時間足とも下向き。今日の残り値幅がまだあり、反対役も強い見送り理由を見つけられず"},
+"AUDUSD":{"direction":"WAIT","reason":"下向きだが先週末に1日の値幅を大きく使い切っており、戻りを待つほうが安全"},
+"GBPJPY":{"direction":"WAIT","reason":"下向きだが値幅を使い切り、利益と損失の比も小さい。日本は祝日で朝は動きが薄い"},
+"EURUSD":{"direction":"SHORT","reason":"日足・4時間足とも下向きで値幅の余地あり。ただし夕方の欧州PMI後の動きは要確認"},
+"EURJPY":{"direction":"WAIT","reason":"下向きだが値幅を使い切っている。祝日で円の動きが読みにくい"},
+"USDJPY":{"direction":"WAIT","reason":"朝の判定が方向なし。上と下の向きが食い違っている"}}}
