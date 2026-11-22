@@ -1,10 +1,16 @@
 {
- "mode": "morning",
+ "mode": "hourly",
  "trade_day": "2026-11-22",
- "generated_jst": "2026-11-23 00:41",
+ "generated_jst": "2026-11-23 00:47",
  "equity_jpy": 30000,
  "risk_pct": 1.0,
  "rules_version": "2026-11-23",
+ "risk_per_trade_jpy": 300,
+ "daily_stop": {
+  "losing_streak": 3,
+  "loss_jpy": 900
+ },
+ "peak_stop_jpy": 4500,
  "macro": {
   "dxy": {
    "now": 103.84,
@@ -17,62 +23,7 @@
    "chg": -0.14
   }
  },
- "events": [
-  {
-   "iso": "2026-11-23T08:15:00+00:00",
-   "time_jst": "11-23 17:15",
-   "currency": "EUR",
-   "impact": "Medium",
-   "title": "French Flash Manufacturing PMI",
-   "forecast": "49.8",
-   "previous": "49.3"
-  },
-  {
-   "iso": "2026-11-23T08:15:00+00:00",
-   "time_jst": "11-23 17:15",
-   "currency": "EUR",
-   "impact": "Medium",
-   "title": "French Flash Services PMI",
-   "forecast": "47.4",
-   "previous": "48.4"
-  },
-  {
-   "iso": "2026-11-23T08:30:00+00:00",
-   "time_jst": "11-23 17:30",
-   "currency": "EUR",
-   "impact": "Medium",
-   "title": "German Flash Manufacturing PMI",
-   "forecast": "54.1",
-   "previous": "54.2"
-  },
-  {
-   "iso": "2026-11-23T08:30:00+00:00",
-   "time_jst": "11-23 17:30",
-   "currency": "EUR",
-   "impact": "Medium",
-   "title": "German Flash Services PMI",
-   "forecast": "52.4",
-   "previous": "51.7"
-  },
-  {
-   "iso": "2026-11-23T09:30:00+00:00",
-   "time_jst": "11-23 18:30",
-   "currency": "GBP",
-   "impact": "Medium",
-   "title": "Flash Manufacturing PMI",
-   "forecast": "53.0",
-   "previous": "52.8"
-  },
-  {
-   "iso": "2026-11-23T09:30:00+00:00",
-   "time_jst": "11-23 18:30",
-   "currency": "GBP",
-   "impact": "Medium",
-   "title": "Flash Services PMI",
-   "forecast": "53.0",
-   "previous": "53.1"
-  }
- ],
+ "events": [],
  "schedule": [
   {
    "iso": "2026-11-22T14:30:00+00:00",
@@ -589,6 +540,8 @@
    }
   }
  ],
- "errors": [],
- "text": "【朝 00:41　今日の方向】\n・GBPUSD：ショート（点数-5）撤退ライン 1.31728\n・AUDUSD：ショート（点数-5）撤退ライン 0.67222\n・GBPJPY：ショート（点数-5）撤退ライン 210.653\n・EURUSD：ショート（点数-4）撤退ライン 1.10132\n・EURJPY：ショート（点数-4）撤退ライン 176.072\n・USDJPY：方向なし（点数+4／点数はLONGだが朝の時点で前日の安値を抜けている）\n［時間割］\n  23:30 NY株式市場オープン（値動きが出やすい）\n  01:00 ロンドンフィックス（急な値動きに注意）\n※水準は無料データ基準。発注前に自分のチャートで確認"
+ "errors": [
+  "朝の方向が未作成だったため、いま作成"
+ ],
+ "text": "【00:47 状況】\n結論：今は全ペア見送り（待つ）\n・GBPUSD：見送り（今日の残り値幅では利確まで届きにくい／朝:ショート→維持）\n・AUDUSD：見送り（今日の残り値幅では利確まで届きにくい／朝:ショート→維持）\n・GBPJPY：見送り（RRが1.5未満／朝:ショート→維持）\n・EURUSD：見送り（今日の残り値幅では利確まで届きにくい／朝:ショート→維持）\n・EURJPY：見送り（今日の残り値幅では利確まで届きにくい／朝:ショート→維持）\n・USDJPY：見送り（朝の方向なし）\n［時間割］\n  01:00 ロンドンフィックス（急な値動きに注意）\n※取得エラー：朝の方向が未作成だったため、いま作成\n※水準は無料データ基準。発注前に自分のチャートで確認"
 }
