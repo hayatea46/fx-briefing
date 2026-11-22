@@ -167,7 +167,9 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
         lo, hi = sup, sup + 0.25 * atr_h1
         entry, sl = (lo + hi) / 2, lo - sl_buf
         tp = next(((v, k) for v, k in sorted((v, k) for k, v in levels.items()) if v >= hi + 0.5 * atr_h1), None)
-        long = {"zone_lo": lo, "zone_hi": hi, "sl": sl, "base_level": sup_name,
+        lmode = "now" if lo <= price <= hi else ("wait" if price > hi else "broken")
+        long = {"zone_lo": lo, "zone_hi": hi, "sl": sl, "base_level": sup_name, "entry_mode": lmode,
+                "dist_pips": max(0.0, (price - hi) / pip_size(name)),
                 "tp": tp[0] if tp else None, "tp_level": tp[1] if tp else None,
                 "rr": (tp[0] - entry) / (entry - sl) if tp else None,
                 "dist_atr": max(0.0, (price - hi) / atr_h1),
@@ -177,7 +179,9 @@ def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime) -> dict
         lo, hi = res - 0.25 * atr_h1, res
         entry, sl = (lo + hi) / 2, hi + sl_buf
         tp = next(((v, k) for v, k in sorted(((v, k) for k, v in levels.items()), reverse=True) if v <= lo - 0.5 * atr_h1), None)
-        short = {"zone_lo": lo, "zone_hi": hi, "sl": sl, "base_level": res_name,
+        smode = "now" if lo <= price <= hi else ("wait" if price < lo else "broken")
+        short = {"zone_lo": lo, "zone_hi": hi, "sl": sl, "base_level": res_name, "entry_mode": smode,
+                 "dist_pips": max(0.0, (lo - price) / pip_size(name)),
                  "tp": tp[0] if tp else None, "tp_level": tp[1] if tp else None,
                  "rr": (entry - tp[0]) / (sl - entry) if tp else None,
                  "dist_atr": max(0.0, (lo - price) / atr_h1),
@@ -208,7 +212,7 @@ def rnd(o, digits):
     if isinstance(o, float):
         return round(o, digits)
     if isinstance(o, dict):
-        return {k: rnd(v, 0 if k == "range_used_pct" else 1 if k == "range_left" else 2 if k in ("rr", "dist_atr", "lots") else digits)
+        return {k: rnd(v, 0 if k == "range_used_pct" else 1 if k in ("range_left", "dist_pips") else 2 if k in ("rr", "dist_atr", "lots") else digits)
                 for k, v in o.items()}
     return o
 
@@ -302,7 +306,8 @@ def morning_bias(h1: pd.DataFrame) -> dict:
     if bias == "LONG" and price < invalid or bias == "SHORT" and price > invalid:
         note = f"点数は{bias}だが朝の時点で前日の{'安値' if bias == 'LONG' else '高値'}を抜けている"
         bias, invalid = "WAIT", None
-    return {"bias": bias, "note": note, "price": price, "score": total, "d1_trend": d_tr, "h4_trend": h4_tr, "structure": struct,
+    strength = "強" if abs(total) >= 4 else "弱"
+    return {"bias": bias, "strength": strength if bias != "WAIT" else "", "note": note, "price": price, "score": total, "d1_trend": d_tr, "h4_trend": h4_tr, "structure": struct,
             "invalid_level": invalid, "prev_day": {k: float(prev[k]) for k in ("Open", "High", "Low", "Close")},
             "ema20_d1": de20, "ema75_d1": de75}
 
@@ -332,6 +337,8 @@ def night_side(m: dict, status: str, a: dict) -> tuple[str, str]:
         return "WAIT", "1時間足が揃っていない"
     if not cand or not cand["rr"] or cand["rr"] < 1.5:
         return "WAIT", "RRが1.5未満"
+    if cand.get("entry_mode") == "broken":
+        return "WAIT", "価格がゾーンを抜けて損切りに近い（待つ）"
     # 最小ロット(0.01)でも1%リスクを超えるなら見送り（固定ルールを守るため）
     if not cand["lots"] or cand["lots"] < CFG.get("min_lot", 0.01):
         return "WAIT", "最小ロットでも1%リスクを超える（資金に対して損切り幅が大きい）"
@@ -441,6 +448,14 @@ SIDE_JA = {"LONG": "ロング推奨", "SHORT": "ショート推奨", "WAIT": "�
 BIAS_JA = {"LONG": "ロング", "SHORT": "ショート", "WAIT": "方向なし"}
 
 
+def bias_label(m: dict, status: str = "") -> str:
+    """ロング（強）／ショート（弱）など。夕方以降に弱まったら弱に下げる"""
+    if m["bias"] == "WAIT":
+        return "方向なし"
+    st = "弱" if status == "弱まった" else m.get("strength", "")
+    return f"{BIAS_JA[m['bias']]}（{st}）" if st else BIAS_JA[m["bias"]]
+
+
 def fmt(p: dict, v) -> str:
     return "NA" if v is None else f"{v:.{p.get('digits', 5)}f}"
 
@@ -473,32 +488,70 @@ def pair_line(p: dict) -> str:
     n, m = p["night"], p["morning"]
     u = pip_unit(p["symbol"])
     left = f"残り値幅 約{p['range_left']}{u}（消化{p['range_used_pct']:.0f}%）"
+    label = bias_label(m, n["status"])
     if n["side"] == "WAIT":
-        why = n["reason"] if n["status"] == "WAIT" else f"{n['reason']}／朝:{BIAS_JA[m['bias']]}→{n['status']}"
+        why = n["reason"] if n["status"] == "WAIT" else f"{n['reason']}／朝:{label}→{n['status']}"
         return f"・{p['symbol']}：見送り（{why}）"
     c = p["long"] if n["side"] == "LONG" else p["short"]
-    return (f"・{p['symbol']}：{SIDE_JA[n['side']]} ゾーン {fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}／損切 {fmt(p, c['sl'])}"
-            f"／利確 {fmt(p, c['tp'])}（RR {c['rr']}）／{c['lots']}lot／撤退ライン {fmt(p, m['invalid_level'])}／{left}")
+    act = "ロング" if n["side"] == "LONG" else "ショート"
+    if c["entry_mode"] == "now":
+        how = f"今の価格で{act}OK（ゾーン内）"
+    else:
+        how = (f"{fmt(p, c['zone_hi'] if n['side'] == 'LONG' else c['zone_lo'])}まで"
+               f"{'下がったら' if n['side'] == 'LONG' else '上がったら'}{act}（あと約{c['dist_pips']}{u}・今は待つ）")
+    return (f"・{p['symbol']} {label}：{how}\n"
+            f"  ゾーン {fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}／損切 {fmt(p, c['sl'])}／利確 {fmt(p, c['tp'])}"
+            f"（RR {c['rr']}）／{c['lots']}lot／撤退ライン {fmt(p, m['invalid_level'])}／{left}")
+
+
+def line_set(p: dict) -> dict:
+    """そのペアで引くべき線の一覧 {キー: 表示文字列}"""
+    m, ln = p["morning"], p["lines"]
+    out = {}
+    for x in ln["horizontal"]["above"] + ln["horizontal"]["below"]:
+        out[f"h:{fmt(p, x['price'])}"] = f"水平線 {fmt(p, x['price'])}（{x['name']}）"
+    if m.get("invalid_level") is not None:
+        out[f"h:{fmt(p, m['invalid_level'])}"] = f"水平線 {fmt(p, m['invalid_level'])}（撤退ライン：1時間足で抜けたら今日の方向は撤回）"
+    t = ln["trend"]
+    if t:
+        out[f"t:{t['from_jst']}|{t['to_jst']}"] = (f"トレンド線 {t['from_jst']} {fmt(p, t['from_price'])} → "
+                                                   f"{t['to_jst']} {fmt(p, t['to_price'])}（今は{fmt(p, t['now'])}付近）")
+    return out
 
 
 def draw_lines(pack: dict) -> list:
-    """朝だけ出す：方向ありペアの引く線"""
+    """朝だけ：前日から変わった線だけ『引く／消す』を短く指示する"""
+    prev = pack.get("prev_lines") or {}
     out = []
+    short = lambda v: v.split("（")[0].replace("水平線 ", "").replace("トレンド線 ", "トレンド線")
     for p in pack["pairs"]:
         m = p["morning"]
-        if m["bias"] == "WAIT":
+        cur = line_set(p) if m["bias"] != "WAIT" else {}
+        old = prev.get(p["symbol"], {})
+        if not cur and not old:
             continue
-        h, t = p["lines"]["horizontal"], p["lines"]["trend"]
-        hz = lambda xs: "・".join(f"{fmt(p, x['price'])}({x['name']})" for x in xs) or "なし"
+        head = f"・{p['symbol']} {bias_label(m)}"
+        if not cur:
+            out.append(f"{head}：昨日の線は全部消してOK")
+            continue
+        add = {k: v for k, v in cur.items() if k not in old}
+        rem = [v for k, v in old.items() if k not in cur]
+        if not add and not rem:
+            out.append(f"{head}：前日から変更なし（引き直し不要）")
+            continue
+        out.append(head)
+        if old and not set(old) & set(cur):
+            out.append("  昨日の線は全部消して、次を引く")
+        elif rem:
+            out.append("  消す：" + "・".join(short(v) for v in rem))
+        hz = [v.replace("水平線 ", "") for k, v in add.items() if k.startswith("h:") and "撤退" not in v]
+        if hz:
+            out.append("  引く（水平線）：" + "・".join(hz))
+        out += [f"  引く：{v}" for v in add.values() if "撤退" in v or v.startswith("トレンド線")]
         c = p["long"] if m["bias"] == "LONG" else p["short"]
-        out.append(f"・{p['symbol']}（{BIAS_JA[m['bias']]}）")
-        out.append(f"  水平線 上：{hz(h['above'])}／下：{hz(h['below'])}")
-        out.append(f"  撤退ライン：{fmt(p, m['invalid_level'])}")
         if c:
-            out.append(f"  ゾーン（朝時点・夜に更新）：{fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}")
-        out.append(f"  トレンド線：{t['from_jst']} {fmt(p, t['from_price'])} → {t['to_jst']} {fmt(p, t['to_price'])}（今は{fmt(p, t['now'])}付近）"
-                   if t else "  トレンド線：条件に合う線なし")
-    return (["［引く線（4時間足基準）］"] + out) if out else []
+            out.append(f"  ゾーンの目安：{fmt(p, c['zone_lo'])}〜{fmt(p, c['zone_hi'])}（引かなくてよい・夜の通知で更新）")
+    return (["［スマホのMT5で引いておく線］"] + out) if out else []
 
 
 def build_text(pack: dict) -> str:
@@ -512,7 +565,7 @@ def build_text(pack: dict) -> str:
             if m["bias"] == "WAIT":
                 lines.append(f"・{p['symbol']}：方向なし（点数{m['score']:+d}{'／' + m['note'] if m.get('note') else ''}）")
             else:
-                lines.append(f"・{p['symbol']}：{BIAS_JA[m['bias']]}（点数{m['score']:+d}）撤退ライン {fmt(p, m['invalid_level'])}")
+                lines.append(f"・{p['symbol']}：{bias_label(m)}　点数{m['score']:+d}／撤退ライン {fmt(p, m['invalid_level'])}")
         lines += draw_lines(pack)
         lines += schedule_lines(pack, False) + review_lines(pack.get("review"))
     else:
@@ -520,11 +573,11 @@ def build_text(pack: dict) -> str:
         recs = [p for p in pairs if p["night"]["side"] != "WAIT"]
         if mode == "evening":
             lines.append(f"【夕方 {t}　朝の方向の確認】")
-            lines.append("結論：" + ("、".join(f"{p['symbol']}({BIAS_JA[p['morning']['bias']]}・{p['night']['status']})" for p in live)
+            lines.append("結論：" + ("、".join(f"{p['symbol']} {bias_label(p['morning'], p['night']['status'])}・{p['night']['status']}" for p in live)
                                      + " が今夜の候補" if live else "朝の方向が全滅＝今夜は休み"))
         else:
             lines.append(f"【{t} 状況】")
-            lines.append("結論：" + ("、".join(f"{p['symbol']} {SIDE_JA[p['night']['side']]}" for p in recs) if recs
+            lines.append("結論：" + ("、".join(f"{p['symbol']} {bias_label(p['morning'], p['night']['status'])}" for p in recs) if recs
                                      else ("今は全ペア見送り（待つ）" if live else "全ペア見送り＝今夜は休み")))
         lines += [pair_line(p) for p in pairs]
         lines += ["⚠ " + w for w in pack.get("warnings", [])]
@@ -607,7 +660,7 @@ def main():
             errors.append("朝の方向が未作成だったため、いま作成")
     since = datetime.fromisoformat(state["created_utc"])
 
-    review = None
+    review, prev = None, None
     if mode == "morning":
         prev = previous_state(trade_day)
         if prev:
@@ -647,6 +700,8 @@ def main():
             last = next((r for r in reversed(state["night_recs"]) if r["symbol"] == p["symbol"]), None)
             if not last or any(last[k] != rec[k] for k in rec):
                 state["night_recs"].append(dict(rec, time_utc=now.isoformat(), time_jst=now_jst.strftime("%H:%M")))
+    if mode == "morning":
+        state["lines"] = {p["symbol"]: line_set(p) for p in pairs if p["morning"]["bias"] != "WAIT"}
     os.makedirs("docs/state", exist_ok=True)
     json.dump(state, open(state_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
@@ -678,7 +733,7 @@ def main():
             "peak_stop_jpy": round(CFG["equity_jpy"] * 0.15),
             "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
             "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
-            "review": review, "pairs": pairs, "errors": errors}
+            "review": review, "prev_lines": (prev or {}).get("lines", {}), "pairs": pairs, "errors": errors}
     pack["text"] = build_text(pack)
     os.makedirs("docs/archive", exist_ok=True)
     for path in (f"docs/{mode}.json", "docs/datapack.json",
