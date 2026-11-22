@@ -274,48 +274,47 @@ def update_horizontal(d1: pd.DataFrame, old: list, price: float, atr_d1: float) 
     return sorted(set(round(x, 6) for x in out))
 
 
-def update_trend(d1: pd.DataFrame, old: dict | None) -> dict | None:
-    """日足のトレンド線。上昇基調は切り上がる谷2つ、下降基調は切り下がる山2つ。日足終値で割れるまで据え置き"""
-    closes = d1["Close"]
-    e20, e75 = float(ema(closes, 20).iloc[-2]), float(ema(closes, 75).iloc[-2])
-    kind = "up" if e20 > e75 else "down"
-    idx = {d: i for i, d in enumerate(d1.index)}
+def _line_val(line: dict, df: pd.DataFrame, i: int) -> float:
+    return line["p2"] + line["slope"] * (i - df.index.get_loc(pd.Timestamp(line["t2"])))
 
-    def value_at(line, i):
-        return line["p2"] + line["slope"] * (i - idx[pd.Timestamp(line["d2"])])
 
-    if old and old.get("kind") == kind and pd.Timestamp(old["d2"]) in idx:
-        i2 = idx[pd.Timestamp(old["d2"])]
-        broken = any((closes.iloc[i] < value_at(old, i)) if kind == "up" else (closes.iloc[i] > value_at(old, i))
-                     for i in range(i2 + 1, len(d1) - 1))
-        if not broken:
-            return old
-    hist = d1.iloc[-130:-1]
+def trend_broken(line: dict | None, df: pd.DataFrame) -> bool:
+    """確定足の終値で線を割ったか（上昇線は下に、下降線は上に）"""
+    if not line or pd.Timestamp(line["t2"]) not in df.index:
+        return True
+    i2 = df.index.get_loc(pd.Timestamp(line["t2"]))
+    closes = df["Close"]
+    return any((closes.iloc[i] < _line_val(line, df, i)) if line["kind"] == "up" else (closes.iloc[i] > _line_val(line, df, i))
+               for i in range(i2 + 1, len(df) - 1))
+
+
+def update_trend(h1: pd.DataFrame, old: dict | None) -> dict | None:
+    """1時間足のトレンド線。EMA20>75なら切り上がる谷2つ、逆なら切り下がる山2つ。
+    1時間足の終値で割れるか向きが変わるまで据え置き"""
+    closes = h1["Close"]
+    kind = "up" if float(ema(closes, 20).iloc[-2]) > float(ema(closes, 75).iloc[-2]) else "down"
+    if old and old.get("kind") == kind and not trend_broken(old, h1):
+        return old
+    hist = h1.iloc[-240:-1]
     pts = swing_points(hist, "low" if kind == "up" else "high", 3)
     if len(pts) < 2:
         return None
-    off = len(d1) - 1 - len(hist)
     p2 = pts[-1]
-    p1 = next((p for p in reversed(pts[:-1]) if (p[2] < p2[2] if kind == "up" else p[2] > p2[2])), None)
+    # 2点が近すぎると傾きがぶれるので、12本（半日）以上離れた点だけ使う
+    p1 = next((p for p in reversed(pts[:-1])
+               if p2[0] - p[0] >= 12 and (p[2] < p2[2] if kind == "up" else p[2] > p2[2])), None)
     if not p1:
         return None
-    slope = (p2[2] - p1[2]) / (p2[0] - p1[0])
-    line = {"kind": kind, "d1": str(p1[1].date()), "p1": p1[2], "d2": str(p2[1].date()), "p2": p2[2], "slope": slope}
-    last = len(d1) - 2
-    if any((closes.iloc[i] < value_at(line, i)) if kind == "up" else (closes.iloc[i] > value_at(line, i))
-           for i in range(p2[0] + off + 1, last + 1)):
-        return None
-    return line
+    line = {"kind": kind, "t1": p1[1].isoformat(), "p1": p1[2], "t2": p2[1].isoformat(), "p2": p2[2],
+            "slope": (p2[2] - p1[2]) / (p2[0] - p1[0]),
+            "t1_jst": p1[1].tz_convert(JST).strftime("%m/%d %H:%M"), "t2_jst": p2[1].tz_convert(JST).strftime("%m/%d %H:%M")}
+    return None if trend_broken(line, h1) else line
 
 
-def trend_now(line: dict | None, d1: pd.DataFrame) -> float | None:
-    if not line:
+def trend_now(line: dict | None, h1: pd.DataFrame) -> float | None:
+    if not line or pd.Timestamp(line["t2"]) not in h1.index:
         return None
-    idx = {d: i for i, d in enumerate(d1.index)}
-    d2 = pd.Timestamp(line["d2"])
-    if d2 not in idx:
-        return None
-    return line["p2"] + line["slope"] * (len(d1) - 1 - idx[d2])
+    return _line_val(line, h1, len(h1) - 1)
 
 
 # ---------------------------------------------------------------- 朝の方向
@@ -551,10 +550,10 @@ def draw_lines(pack: dict) -> list:
         if ch["add_h"]:
             out.append("  引く（水平線）：" + "・".join(f(v) for v in ch["add_h"]))
         if ch["remove_t"]:
-            out.append("  消す：トレンド線（日足終値で割れた／向きが変わった）")
+            out.append("  消す：トレンド線（1時間足の終値で割れた／向きが変わった）" + ("" if ch["add_t"] else "。今は条件に合う新しい線なし"))
         t = ch["add_t"]
         if t:
-            out.append(f"  引く：トレンド線 {t['d1'][5:].replace('-', '/')} {f(t['p1'])} → {t['d2'][5:].replace('-', '/')} {f(t['p2'])}"
+            out.append(f"  引く：トレンド線（1時間足）{t['t1_jst']} {f(t['p1'])} → {t['t2_jst']} {f(t['p2'])}"
                        f"（{'上昇' if t['kind'] == 'up' else '下降'}・今は{f(p['trend_now'])}付近）")
     for p in pack["pairs"]:
         ch = p.get("line_changes")
@@ -563,7 +562,7 @@ def draw_lines(pack: dict) -> list:
     same = [p["symbol"] for p in pack["pairs"] if not p.get("line_changes")]
     if not out:
         return ["［スマホのMT5の線］全ペア変更なし（引き直し不要）"]
-    head = ["［スマホのMT5で引いておく線（日足基準）］"]
+    head = ["［スマホのMT5で引いておく線（水平線は日足・トレンド線は1時間足）］"]
     tail = [f"  その他（{'・'.join(same)}）は変更なし"] if same else []
     return head + out + tail
 
@@ -595,6 +594,9 @@ def build_text(pack: dict) -> str:
                                      else ("今は全ペア見送り（待つ）" if live else "全ペア見送り＝今夜は休み")))
         lines += [pair_line(p) for p in pairs]
         lines += ["⚠ " + w for w in pack.get("warnings", [])]
+        broken = [p["symbol"] for p in pairs if p.get("trend_broken")]
+        if broken:
+            lines.append("📉 1時間足のトレンド線を割った：" + "・".join(broken) + "（その線は消してOK。新しい線は明朝の配信で）")
         lines += schedule_lines(pack, mode == "hourly")
     if pack["errors"]:
         lines.append("※取得エラー：" + " / ".join(pack["errors"]))
@@ -694,11 +696,11 @@ def main():
                 a_d1 = float(atr(d1).iloc[-2])
                 old = lines_db.get(name, {})
                 hz = update_horizontal(d1, old.get("horizontal", []), price, a_d1)
-                tr = update_trend(d1, old.get("trend"))
+                tr = update_trend(df, old.get("trend"))
                 tol = 1e-9
                 add_h = [v for v in hz if all(abs(v - o) > tol for o in old.get("horizontal", []))]
                 rem_h = [o for o in old.get("horizontal", []) if all(abs(v - o) > tol for v in hz)]
-                t_changed = (tr or {}).get("d2") != (old.get("trend") or {}).get("d2") or \
+                t_changed = (tr or {}).get("t2") != (old.get("trend") or {}).get("t2") or \
                             (tr or {}).get("kind") != (old.get("trend") or {}).get("kind")
                 if add_h or rem_h or t_changed:
                     changes[name] = {"first": not old, "add_h": add_h, "remove_h": rem_h,
@@ -718,7 +720,8 @@ def main():
             ldb = lines_db.get(name, {})
             a = analyze(name, data[name], rates, now, ldb.get("horizontal"))
             a["lines"] = {"horizontal": ldb.get("horizontal", []), "trend": ldb.get("trend")}
-            a["trend_now"] = trend_now(ldb.get("trend"), to_daily(data[name]))
+            a["trend_now"] = trend_now(ldb.get("trend"), data[name])
+            a["trend_broken"] = bool(ldb.get("trend")) and trend_broken(ldb.get("trend"), data[name])
             a["line_changes"] = changes.get(name)
             a = rnd(a, dg)
             m = state["pairs"][name]
