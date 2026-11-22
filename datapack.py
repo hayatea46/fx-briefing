@@ -546,22 +546,22 @@ def draw_lines(pack: dict) -> list:
         if ch["first"]:
             out.append("  （初回）次の線を引いておく")
         if ch["remove_h"]:
-            out.append("  消す（水平線）：" + "・".join(f(v) for v in ch["remove_h"]))
+            out.append("  消す（白の水平線）：" + "・".join(f(v) for v in ch["remove_h"]))
         if ch["add_h"]:
-            out.append("  引く（水平線）：" + "・".join(f(v) for v in ch["add_h"]))
+            out.append("  引く（水平線・白・実線）：" + "・".join(f(v) for v in ch["add_h"]))
         if ch["keep_broken"]:
             b = ch["keep_broken"]
-            out.append(f"  色を変えて残す：割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}"
+            out.append(f"  灰色に変えて残す：割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}"
                        f"（戻ってきたら今度は{'上値を抑える' if b['kind'] == 'up' else '下値を支える'}壁になりやすい。明日まで）")
         for b in ch["expire_broken"]:
-            out.append(f"  消す：割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}（役目終了）")
+            out.append(f"  消す：灰色の割れたトレンド線 {b['t1_jst']}→{b['t2_jst']}（役目終了）")
         if ch["remove_t"]:
-            out.append("  消す：トレンド線（向きが変わった）" + ("" if ch["add_t"] else "。今は条件に合う新しい線なし"))
+            out.append("  消す：緑のトレンド線（向きが変わった）" + ("" if ch["add_t"] else "。今は条件に合う新しい線なし"))
         if ch["keep_broken"] and not ch["add_t"]:
             out.append("  新しいトレンド線：今は条件に合う線なし")
         t = ch["add_t"]
         if t:
-            out.append(f"  引く：トレンド線（1時間足）{t['t1_jst']} {f(t['p1'])} → {t['t2_jst']} {f(t['p2'])}"
+            out.append(f"  引く：トレンド線（1時間足・緑・実線）{t['t1_jst']} {f(t['p1'])} → {t['t2_jst']} {f(t['p2'])}"
                        f"（{'上昇' if t['kind'] == 'up' else '下降'}・今は{f(p['trend_now'])}付近）")
     for p in pack["pairs"]:
         ch = p.get("line_changes")
@@ -570,7 +570,7 @@ def draw_lines(pack: dict) -> list:
     same = [p["symbol"] for p in pack["pairs"] if not p.get("line_changes")]
     if not out:
         return ["［スマホのMT5の線］全ペア変更なし（引き直し不要）"]
-    head = ["［スマホのMT5で引いておく線（水平線は日足・トレンド線は1時間足）］"]
+    head = ["［スマホのMT5で引いておく線］（色：日足の水平線＝白・実線／1時間足のトレンド線＝緑・実線／割れたトレンド線＝灰色）"]
     tail = [f"  その他（{'・'.join(same)}）は変更なし"] if same else []
     return head + out + tail
 
@@ -605,7 +605,7 @@ def build_text(pack: dict) -> str:
         broken = [p["symbol"] for p in pairs if p.get("trend_broken")]
         if broken:
             lines.append("📉 1時間足のトレンド線を割った：" + "・".join(broken)
-                         + "（消さずに色を変えて残す。戻ってきたら今度は反対側の壁になりやすい。新しい線は明朝の配信で）")
+                         + "（消さずに灰色に変えて残す。戻ってきたら今度は反対側の壁になりやすい。新しい線は明朝の配信で）")
         lines += schedule_lines(pack, mode == "hourly")
     if pack["errors"]:
         lines.append("※取得エラー：" + " / ".join(pack["errors"]))
