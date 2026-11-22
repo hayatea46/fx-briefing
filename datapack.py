@@ -277,6 +277,9 @@ def night_side(m: dict, status: str, a: dict) -> tuple[str, str]:
         return "WAIT", "1時間足が揃っていない"
     if not cand or not cand["rr"] or cand["rr"] < 1.5:
         return "WAIT", "RRが1.5未満"
+    # 最小ロット(0.01)でも1%リスクを超えるなら見送り（固定ルールを守るため）
+    if not cand["lots"] or cand["lots"] < CFG.get("min_lot", 0.01):
+        return "WAIT", "最小ロットでも1%リスクを超える（資金に対して損切り幅が大きい）"
     # 今日の残り値幅で利確まで届かないなら見送り
     left_price = a["range_left"] * pip_size(a["symbol"])
     need = abs(cand["tp"] - (cand["zone_lo"] + cand["zone_hi"]) / 2)

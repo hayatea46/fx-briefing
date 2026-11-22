@@ -2,6 +2,7 @@
  "rules_version": "2026-11-21",
  "equity_jpy": 1000000,
  "risk_pct": 1.0,
+ "min_lot": 0.01,
  "event_hours": 14,
  "event_currencies": ["USD", "EUR", "GBP", "JPY", "AUD"],
  "instruments": {
