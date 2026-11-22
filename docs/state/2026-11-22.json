@@ -1,0 +1,116 @@
+{
+ "trade_day": "2026-11-22",
+ "created_jst": "2026-11-23 00:41",
+ "created_utc": "2026-11-22T15:41:52.380030+00:00",
+ "pairs": {
+  "USDJPY": {
+   "bias": "WAIT",
+   "note": "点数はLONGだが朝の時点で前日の安値を抜けている",
+   "price": 158.512,
+   "score": 4,
+   "d1_trend": 2,
+   "h4_trend": 1,
+   "structure": 1,
+   "invalid_level": null,
+   "prev_day": {
+    "Open": 159.328,
+    "High": 159.97,
+    "Low": 159.265,
+    "Close": 159.671
+   },
+   "ema20_d1": 158.78,
+   "ema75_d1": 158.419
+  },
+  "EURUSD": {
+   "bias": "SHORT",
+   "note": "",
+   "price": 1.09745,
+   "score": -4,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": 0,
+   "invalid_level": 1.10132,
+   "prev_day": {
+    "Open": 1.09782,
+    "High": 1.10132,
+    "Low": 1.09589,
+    "Close": 1.09697
+   },
+   "ema20_d1": 1.11088,
+   "ema75_d1": 1.12943
+  },
+  "GBPUSD": {
+   "bias": "SHORT",
+   "note": "",
+   "price": 1.30818,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 1.31728,
+   "prev_day": {
+    "Open": 1.31391,
+    "High": 1.31728,
+    "Low": 1.3082,
+    "Close": 1.30878
+   },
+   "ema20_d1": 1.32761,
+   "ema75_d1": 1.33474
+  },
+  "AUDUSD": {
+   "bias": "SHORT",
+   "note": "",
+   "price": 0.6619,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 0.67222,
+   "prev_day": {
+    "Open": 0.67186,
+    "High": 0.67222,
+    "Low": 0.66569,
+    "Close": 0.66613
+   },
+   "ema20_d1": 0.6858,
+   "ema75_d1": 0.6978
+  },
+  "EURJPY": {
+   "bias": "SHORT",
+   "note": "",
+   "price": 173.904,
+   "score": -4,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": 0,
+   "invalid_level": 176.072,
+   "prev_day": {
+    "Open": 174.81,
+    "High": 176.072,
+    "Low": 174.665,
+    "Close": 175.122
+   },
+   "ema20_d1": 176.316,
+   "ema75_d1": 178.854
+  },
+  "GBPJPY": {
+   "bias": "SHORT",
+   "note": "",
+   "price": 207.49,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 210.653,
+   "prev_day": {
+    "Open": 209.473,
+    "High": 210.653,
+    "Low": 208.895,
+    "Close": 208.963
+   },
+   "ema20_d1": 210.753,
+   "ema75_d1": 211.415
+  }
+ },
+ "night_recs": []
+}
