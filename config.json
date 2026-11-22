@@ -1,18 +1,62 @@
 {
- "rules_version": "2026-11-21",
- "equity_jpy": 1000000,
+ "rules_version": "2026-11-23",
+ "equity_jpy": 30000,
  "risk_pct": 1.0,
  "min_lot": 0.01,
  "event_hours": 14,
- "event_currencies": ["USD", "EUR", "GBP", "JPY", "AUD"],
+ "event_currencies": [
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "AUD"
+ ],
  "instruments": {
-  "XAUUSD": {"source": "twelvedata", "ticker": "XAU/USD", "fallback_ticker": "GC=F", "quote": "USD", "contract": 100, "digits": 2},
-  "USDJPY": {"source": "yfinance", "ticker": "USDJPY=X", "quote": "JPY", "contract": 100000, "digits": 3},
-  "EURUSD": {"source": "yfinance", "ticker": "EURUSD=X", "quote": "USD", "contract": 100000, "digits": 5},
-  "GBPUSD": {"source": "yfinance", "ticker": "GBPUSD=X", "quote": "USD", "contract": 100000, "digits": 5},
-  "AUDUSD": {"source": "yfinance", "ticker": "AUDUSD=X", "quote": "USD", "contract": 100000, "digits": 5},
-  "EURJPY": {"source": "yfinance", "ticker": "EURJPY=X", "quote": "JPY", "contract": 100000, "digits": 3},
-  "GBPJPY": {"source": "yfinance", "ticker": "GBPJPY=X", "quote": "JPY", "contract": 100000, "digits": 3}
+  "USDJPY": {
+   "source": "yfinance",
+   "ticker": "USDJPY=X",
+   "quote": "JPY",
+   "contract": 100000,
+   "digits": 3
+  },
+  "EURUSD": {
+   "source": "yfinance",
+   "ticker": "EURUSD=X",
+   "quote": "USD",
+   "contract": 100000,
+   "digits": 5
+  },
+  "GBPUSD": {
+   "source": "yfinance",
+   "ticker": "GBPUSD=X",
+   "quote": "USD",
+   "contract": 100000,
+   "digits": 5
+  },
+  "AUDUSD": {
+   "source": "yfinance",
+   "ticker": "AUDUSD=X",
+   "quote": "USD",
+   "contract": 100000,
+   "digits": 5
+  },
+  "EURJPY": {
+   "source": "yfinance",
+   "ticker": "EURJPY=X",
+   "quote": "JPY",
+   "contract": 100000,
+   "digits": 3
+  },
+  "GBPJPY": {
+   "source": "yfinance",
+   "ticker": "GBPJPY=X",
+   "quote": "JPY",
+   "contract": 100000,
+   "digits": 3
+  }
  },
- "macro": {"dxy": "DX-Y.NYB", "us10y": "^TNX"}
+ "macro": {
+  "dxy": "DX-Y.NYB",
+  "us10y": "^TNX"
+ }
 }

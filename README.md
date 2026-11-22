@@ -8,4 +8,4 @@
 - 今日の残り値幅で利確まで届かない推奨は見送りに落とす
 - 朝と夕方はClaudeが `verify.py` で数字を照合したうえで解説を配信
 - 口座残高は `config.json` の `equity_jpy` を手で更新（ロット計算用）
-- Secrets：`TWELVEDATA_API_KEY`（ゴールド現物）、`NTFY_TOPIC`（通知先）
+- Secrets：`NTFY_TOPIC`（通知先）。ゴールドは資金3万円では1%ルールを守れないため対象外（資金15万円前後で再検討。その際は Twelve Data キー `TWELVEDATA_API_KEY` を使う）
