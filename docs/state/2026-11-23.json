@@ -118,5 +118,26 @@
    "ema75_d1": 211.298
   }
  },
- "night_recs": []
+ "night_recs": [
+  {
+   "symbol": "EURUSD",
+   "side": "SHORT",
+   "zone_lo": 1.09745,
+   "zone_hi": 1.0977,
+   "sl": 1.09819,
+   "tp": 1.09613,
+   "time_utc": "2026-11-23T12:24:12.749706+00:00",
+   "time_jst": "21:24"
+  },
+  {
+   "symbol": "EURJPY",
+   "side": "SHORT",
+   "zone_lo": 174.255,
+   "zone_hi": 174.31,
+   "sl": 174.419,
+   "tp": 174.0,
+   "time_utc": "2026-11-23T12:24:12.749706+00:00",
+   "time_jst": "21:24"
+  }
+ ]
 }
