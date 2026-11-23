@@ -25,6 +25,7 @@ jobs:
       - run: python datapack.py
         env:
           MODE: ${{ github.event.inputs.mode }}
+          SCHEDULE: ${{ github.event.schedule }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       - run: |

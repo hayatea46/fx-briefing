@@ -58,6 +58,19 @@ def to_daily(h1: pd.DataFrame) -> pd.DataFrame:
     return d[d.index.dayofweek < 5]
 
 
+def daily_with_today(h1: pd.DataFrame, now_utc: datetime | None = None) -> pd.DataFrame:
+    """日足の最後の行を必ず「今日（作成中）」にする。
+    データの遅れで今日の足がまだ無いと、前日を今日と取り違えて全部1日ずれるため、
+    その場合は値幅0の仮の行を足す（前日＝本当の前日、今日の値幅＝0になる）"""
+    d = to_daily(h1)
+    now_utc = now_utc or datetime.now(timezone.utc)
+    key = (pd.Timestamp(now_utc).tz_convert("America/New_York") + pd.Timedelta(hours=7)).normalize().tz_localize(None)
+    if key.dayofweek < 5 and (d.empty or d.index[-1] < key):
+        c = float(h1["Close"].iloc[-1])
+        d.loc[key] = {"Open": c, "High": c, "Low": c, "Close": c}
+    return d
+
+
 def atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
     pc = df["Close"].shift(1)
     tr = pd.concat([df["High"] - df["Low"], (df["High"] - pc).abs(), (df["Low"] - pc).abs()], axis=1).max(axis=1)
@@ -124,7 +137,7 @@ def lots_for_risk(sl_dist, contract, jpy_q, equity_jpy, risk_pct, step=0.01):
 
 
 def analyze(name: str, h1: pd.DataFrame, rates: dict, now_utc: datetime, majors: list | None = None) -> dict:
-    d1 = to_daily(h1)
+    d1 = daily_with_today(h1, now_utc)
     h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
     price = float(h1["Close"].iloc[-1])
     last_bar = h1.index[-1].to_pydatetime()
@@ -320,7 +333,7 @@ def trend_now(line: dict | None, h1: pd.DataFrame) -> float | None:
 # ---------------------------------------------------------------- 朝の方向
 def morning_bias(h1: pd.DataFrame) -> dict:
     """前日までの確定足で今日の方向を決める（-5〜+5点）"""
-    d1 = to_daily(h1)
+    d1 = daily_with_today(h1)
     h4 = h1.resample("4h", origin="epoch").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last"}).dropna()
     prev, prev2 = d1.iloc[-2], d1.iloc[-3]
     de20, de75 = float(ema(d1["Close"], 20).iloc[-2]), float(ema(d1["Close"], 75).iloc[-2])
@@ -607,6 +620,9 @@ def build_text(pack: dict) -> str:
             lines.append("📉 1時間足のトレンド線を割った：" + "・".join(broken)
                          + "（消さずに灰色に変えて残す。戻ってきたら今度は反対側の壁になりやすい。新しい線は明朝の配信で）")
         lines += schedule_lines(pack, mode == "hourly")
+    stale = [p for p in pairs if p.get("stale")]
+    if stale:
+        lines.append(f"※無料データの更新が遅れています（最新の足 {stale[0]['last_bar_jst'][5:]}）。週明けの朝によく起きます。発注前に自分のチャートで確認")
     if pack["errors"]:
         lines.append("※取得エラー：" + " / ".join(pack["errors"]))
     lines.append("※水準は無料データ基準。発注前に自分のチャートで確認")
@@ -664,10 +680,41 @@ def previous_state(trade_day: str) -> dict | None:
     return json.load(open(f"docs/state/{days[-1]}.json", encoding="utf-8")) if days else None
 
 
+# 定期実行の予定時刻（日本時間）と、何分遅れまで実行するか
+SCHEDULES = {
+    "23 22 * * 0-4": ("morning", [(7, 23)], 90),
+    "53 9 * * 1-5": ("evening", [(18, 53)], 60),
+    "3 11-16 * * 1-5": ("hourly", [(h, 3) for h in (20, 21, 22, 23, 0, 1)], 40),
+}
+
+
+def scheduled_mode(now_jst: datetime) -> str | None:
+    """定期実行のとき：予定どおりのモードを返す。遅れすぎ・実行済みなら None（何もしない）"""
+    cron = os.environ.get("SCHEDULE", "")
+    if not cron or cron not in SCHEDULES:
+        return pick_mode(now_jst)
+    mode, slots, max_late = SCHEDULES[cron]
+    cands = [(now_jst - timedelta(days=d)).replace(hour=h, minute=m, second=0, microsecond=0)
+             for d in (0, 1) for h, m in slots]
+    slot = max(c for c in cands if c <= now_jst)
+    late = (now_jst - slot).total_seconds() / 60
+    if late > max_late:
+        print(f"skip: 定期実行が{late:.0f}分遅れたため何もしない（予定 {slot:%H:%M}）")
+        return None
+    if mode in ("morning", "evening") and os.path.exists(f"docs/{mode}.json"):
+        old = json.load(open(f"docs/{mode}.json", encoding="utf-8"))
+        if old.get("generated_jst", "")[:10] == now_jst.strftime("%Y-%m-%d"):
+            print(f"skip: 今日の{mode}は作成済み（{old['generated_jst']}）")
+            return None
+    return mode
+
+
 def main():
     now = datetime.now(timezone.utc)
     now_jst = now.astimezone(JST)
-    mode = pick_mode(now_jst)
+    mode = scheduled_mode(now_jst) if not os.environ.get("MODE") else pick_mode(now_jst)
+    if mode is None:
+        return
     trade_day = (now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
     state_path = f"docs/state/{trade_day}.json"
     errors = []
@@ -703,7 +750,7 @@ def main():
     if mode == "morning":
         for name, df in data.items():
             try:
-                d1 = to_daily(df)
+                d1 = daily_with_today(df, now)
                 price = float(df["Close"].iloc[-1])
                 a_d1 = float(atr(d1).iloc[-2])
                 old = lines_db.get(name, {})
@@ -803,6 +850,9 @@ def main():
             "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
             "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
             "review": review, "pairs": pairs, "errors": errors}
+    if not pairs:
+        print("データ取得に全部失敗したため、保存も通知もしない:", " / ".join(errors))
+        sys.exit(1)
     pack["text"] = build_text(pack)
     os.makedirs("docs/archive", exist_ok=True)
     for path in (f"docs/{mode}.json", "docs/datapack.json",
