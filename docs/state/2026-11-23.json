@@ -1,121 +1,121 @@
 {
  "trade_day": "2026-11-23",
- "created_jst": "2026-11-23 08:39",
- "created_utc": "2026-11-22T23:39:36.049662+00:00",
+ "created_jst": "2026-11-23 11:54",
+ "created_utc": "2026-11-23T02:54:50.525431+00:00",
  "pairs": {
   "USDJPY": {
    "bias": "WAIT",
    "strength": "",
-   "note": "点数はLONGだが朝の時点で前日の安値を抜けている",
-   "price": 158.512,
-   "score": 4,
-   "d1_trend": 2,
+   "note": "",
+   "price": 158.91,
+   "score": 1,
+   "d1_trend": 1,
    "h4_trend": 1,
-   "structure": 1,
+   "structure": -1,
    "invalid_level": null,
    "prev_day": {
-    "Open": 159.328,
-    "High": 159.97,
-    "Low": 159.265,
-    "Close": 159.671
+    "Open": 159.664,
+    "High": 159.841,
+    "Low": 158.408,
+    "Close": 158.512
    },
-   "ema20_d1": 158.78,
-   "ema75_d1": 158.419
+   "ema20_d1": 158.755,
+   "ema75_d1": 158.411
   },
   "EURUSD": {
    "bias": "SHORT",
-   "strength": "強",
+   "strength": "弱",
    "note": "",
-   "price": 1.09745,
-   "score": -4,
+   "price": 1.09866,
+   "score": -3,
    "d1_trend": -2,
-   "h4_trend": -2,
+   "h4_trend": -1,
    "structure": 0,
-   "invalid_level": 1.10132,
+   "invalid_level": 1.10023,
    "prev_day": {
-    "Open": 1.09782,
-    "High": 1.10132,
-    "Low": 1.09589,
-    "Close": 1.09697
+    "Open": 1.09577,
+    "High": 1.10023,
+    "Low": 1.09577,
+    "Close": 1.09709
    },
-   "ema20_d1": 1.11088,
-   "ema75_d1": 1.12943
+   "ema20_d1": 1.10957,
+   "ema75_d1": 1.12865
   },
   "GBPUSD": {
    "bias": "SHORT",
    "strength": "強",
    "note": "",
-   "price": 1.30818,
-   "score": -5,
+   "price": 1.31105,
+   "score": -4,
    "d1_trend": -2,
    "h4_trend": -2,
-   "structure": -1,
-   "invalid_level": 1.31728,
+   "structure": 0,
+   "invalid_level": 1.3128,
    "prev_day": {
-    "Open": 1.31391,
-    "High": 1.31728,
-    "Low": 1.3082,
-    "Close": 1.30878
+    "Open": 1.31056,
+    "High": 1.3128,
+    "Low": 1.30763,
+    "Close": 1.30859
    },
-   "ema20_d1": 1.32761,
-   "ema75_d1": 1.33474
+   "ema20_d1": 1.3258,
+   "ema75_d1": 1.33407
   },
   "AUDUSD": {
    "bias": "SHORT",
    "strength": "強",
    "note": "",
-   "price": 0.6619,
+   "price": 0.66388,
    "score": -5,
    "d1_trend": -2,
    "h4_trend": -2,
    "structure": -1,
-   "invalid_level": 0.67222,
+   "invalid_level": 0.6684,
    "prev_day": {
-    "Open": 0.67186,
-    "High": 0.67222,
-    "Low": 0.66569,
-    "Close": 0.66613
+    "Open": 0.66707,
+    "High": 0.6684,
+    "Low": 0.66124,
+    "Close": 0.6623
    },
-   "ema20_d1": 0.6858,
-   "ema75_d1": 0.6978
+   "ema20_d1": 0.68356,
+   "ema75_d1": 0.69689
   },
   "EURJPY": {
    "bias": "SHORT",
    "strength": "強",
    "note": "",
-   "price": 173.904,
-   "score": -4,
+   "price": 174.556,
+   "score": -5,
    "d1_trend": -2,
    "h4_trend": -2,
-   "structure": 0,
-   "invalid_level": 176.072,
+   "structure": -1,
+   "invalid_level": 175.344,
    "prev_day": {
-    "Open": 174.81,
-    "High": 176.072,
-    "Low": 174.665,
-    "Close": 175.122
+    "Open": 175.127,
+    "High": 175.344,
+    "Low": 173.732,
+    "Close": 173.853
    },
-   "ema20_d1": 176.316,
-   "ema75_d1": 178.854
+   "ema20_d1": 176.08,
+   "ema75_d1": 178.721
   },
   "GBPJPY": {
    "bias": "SHORT",
    "strength": "強",
    "note": "",
-   "price": 207.49,
+   "price": 208.329,
    "score": -5,
    "d1_trend": -2,
    "h4_trend": -2,
    "structure": -1,
-   "invalid_level": 210.653,
+   "invalid_level": 209.192,
    "prev_day": {
-    "Open": 209.473,
-    "High": 210.653,
-    "Low": 208.895,
-    "Close": 208.963
+    "Open": 208.967,
+    "High": 209.192,
+    "Low": 207.223,
+    "Close": 207.433
    },
-   "ema20_d1": 210.753,
-   "ema75_d1": 211.415
+   "ema20_d1": 210.435,
+   "ema75_d1": 211.298
   }
  },
  "night_recs": []
