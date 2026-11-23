@@ -1,0 +1,931 @@
+{
+ "mode": "morning",
+ "trade_day": "2026-11-24",
+ "generated_jst": "2026-11-24 07:45",
+ "equity_jpy": 30000,
+ "risk_pct": 1.0,
+ "rules_version": "2026-11-23",
+ "risk_per_trade_jpy": 300,
+ "daily_stop": {
+  "losing_streak": 3,
+  "loss_jpy": 900
+ },
+ "peak_stop_jpy": 4500,
+ "macro": {
+  "dxy": {
+   "now": 104.326,
+   "prev_close": 104.332,
+   "chg": -0.006
+  },
+  "us10y": {
+   "now": 4.918,
+   "prev_close": 4.912,
+   "chg": 0.006
+  }
+ },
+ "events": [
+  {
+   "iso": "2026-11-24T15:00:00+00:00",
+   "time_jst": "11-25 00:00",
+   "currency": "USD",
+   "impact": "Medium",
+   "title": "CB Consumer Confidence",
+   "forecast": "92.4",
+   "previous": "91.7"
+  }
+ ],
+ "schedule": [
+  {
+   "iso": "2026-11-24T14:30:00+00:00",
+   "time_jst": "11-24 23:30",
+   "title": "NY株式市場オープン（値動きが出やすい）",
+   "kind": "session"
+  },
+  {
+   "iso": "2026-11-24T16:00:00+00:00",
+   "time_jst": "11-25 01:00",
+   "title": "ロンドンフィックス（急な値動きに注意）",
+   "kind": "session"
+  }
+ ],
+ "warnings": [],
+ "review": {
+  "trade_day": "2026-11-23",
+  "morning": [
+   {
+    "symbol": "EURUSD",
+    "bias": "SHORT",
+    "result": "的中"
+   },
+   {
+    "symbol": "GBPUSD",
+    "bias": "SHORT",
+    "result": "的中"
+   },
+   {
+    "symbol": "AUDUSD",
+    "bias": "SHORT",
+    "result": "判定外"
+   },
+   {
+    "symbol": "EURJPY",
+    "bias": "SHORT",
+    "result": "的中"
+   },
+   {
+    "symbol": "GBPJPY",
+    "bias": "SHORT",
+    "result": "的中"
+   }
+  ],
+  "night": [
+   {
+    "symbol": "EURUSD",
+    "side": "SHORT",
+    "time_jst": "21:24",
+    "result": "未到達"
+   },
+   {
+    "symbol": "EURJPY",
+    "side": "SHORT",
+    "time_jst": "21:24",
+    "result": "損切り"
+   }
+  ]
+ },
+ "pairs": [
+  {
+   "symbol": "EURUSD",
+   "digits": 5,
+   "source": "yfinance",
+   "price": 1.09051,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 0.00664,
+   "atr_h1": 0.00131,
+   "range_used_pct": 13.0,
+   "range_left": 58.0,
+   "ema20_h1": 1.09345,
+   "ema75_h1": 1.0968,
+   "ema200_h1": 1.10161,
+   "ema20_h4": 1.09697,
+   "ema75_h4": 1.10471,
+   "ema200_h4": 1.11523,
+   "trend_h1": -2,
+   "trend_h4": -2,
+   "trend_score": -4,
+   "levels": {
+    "prev_high": 1.10084,
+    "prev_low": 1.08849,
+    "today_high": 1.09063,
+    "today_low": 1.0898,
+    "prev_week_high": 1.10327,
+    "prev_week_low": 1.09577,
+    "pivot": 1.09328,
+    "r1": 1.09807,
+    "s1": 1.08573,
+    "r2": 1.10562,
+    "s2": 1.08094,
+    "round_below": 1.09,
+    "round_above": 1.095,
+    "major0": 1.11136,
+    "major1": 1.11657
+   },
+   "long": {
+    "zone_lo": 1.09,
+    "zone_hi": 1.09033,
+    "sl": 1.08934,
+    "base_level": "round_below",
+    "entry_mode": "wait",
+    "dist_pips": 1.8,
+    "tp": 1.09328,
+    "tp_level": "pivot",
+    "rr": 3.8,
+    "dist_atr": 0.14,
+    "lots": 0.02
+   },
+   "short": {
+    "zone_lo": 1.0903,
+    "zone_hi": 1.09063,
+    "sl": 1.09129,
+    "base_level": "today_high",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 1.08849,
+    "tp_level": "prev_low",
+    "rr": 2.4,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "code_side": "SHORT",
+   "score": 6,
+   "lines": {
+    "horizontal": [
+     1.111358,
+     1.11657
+    ],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-19T10:00:00+00:00",
+     "p1": 1.10132,
+     "t2": "2026-11-23T07:00:00+00:00",
+     "p2": 1.10084,
+     "slope": -1.1021440679376775e-05,
+     "t1_jst": "11/19 19:00",
+     "t2_jst": "11/23 16:00"
+    }
+   },
+   "trend_now": 1.10067,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-19T10:00:00+00:00",
+     "p1": 1.10132,
+     "t2": "2026-11-23T07:00:00+00:00",
+     "p2": 1.10084,
+     "slope": -1.1021440679376775e-05,
+     "t1_jst": "11/19 19:00",
+     "t2_jst": "11/23 16:00"
+    },
+    "remove_t": false,
+    "keep_broken": {
+     "kind": "down",
+     "t1": "2026-11-19T10:00:00+00:00",
+     "p1": 1.10132,
+     "t2": "2026-11-20T13:00:00+00:00",
+     "p2": 1.10023,
+     "slope": -4.038987336335359e-05,
+     "t1_jst": "11/19 19:00",
+     "t2_jst": "11/20 22:00",
+     "broken_day": "2026-11-24"
+    },
+    "expire_broken": []
+   },
+   "morning": {
+    "bias": "SHORT",
+    "strength": "強",
+    "note": "",
+    "price": 1.09051,
+    "score": -5,
+    "d1_trend": -2,
+    "h4_trend": -2,
+    "structure": -1,
+    "invalid_level": 1.10084,
+    "prev_day": {
+     "Open": 1.09757,
+     "High": 1.10084,
+     "Low": 1.08849,
+     "Close": 1.09051
+    },
+    "ema20_d1": 1.10775,
+    "ema75_d1": 1.12758
+   },
+   "night": {
+    "status": "維持",
+    "side": "SHORT",
+    "reason": ""
+   }
+  },
+  {
+   "symbol": "GBPUSD",
+   "digits": 5,
+   "source": "yfinance",
+   "price": 1.30368,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 0.00757,
+   "atr_h1": 0.0015,
+   "range_used_pct": 20.0,
+   "range_left": 60.7,
+   "ema20_h1": 1.30625,
+   "ema75_h1": 1.31067,
+   "ema200_h1": 1.31772,
+   "ema20_h4": 1.31075,
+   "ema75_h4": 1.32133,
+   "ema200_h4": 1.32864,
+   "trend_h1": -2,
+   "trend_h4": -2,
+   "trend_score": -4,
+   "levels": {
+    "prev_high": 1.31442,
+    "prev_low": 1.30115,
+    "today_high": 1.304,
+    "today_low": 1.30251,
+    "prev_week_high": 1.32273,
+    "prev_week_low": 1.30763,
+    "pivot": 1.30626,
+    "r1": 1.31138,
+    "s1": 1.29811,
+    "r2": 1.31954,
+    "s2": 1.29299,
+    "round_below": 1.3,
+    "round_above": 1.305,
+    "major0": 1.31389,
+    "major1": 1.31813,
+    "major2": 1.3274
+   },
+   "long": {
+    "zone_lo": 1.30251,
+    "zone_hi": 1.30288,
+    "sl": 1.30176,
+    "base_level": "today_low",
+    "entry_mode": "wait",
+    "dist_pips": 8.0,
+    "tp": 1.304,
+    "tp_level": "today_high",
+    "rr": 1.39,
+    "dist_atr": 0.53,
+    "lots": 0.02
+   },
+   "short": {
+    "zone_lo": 1.30363,
+    "zone_hi": 1.304,
+    "sl": 1.30475,
+    "base_level": "today_high",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 1.30251,
+    "tp_level": "today_low",
+    "rr": 1.39,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "code_side": "WAIT",
+   "score": 0,
+   "lines": {
+    "horizontal": [
+     1.313888,
+     1.318131,
+     1.327404
+    ],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-19T10:00:00+00:00",
+     "p1": 1.31728,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 1.31442,
+     "slope": -6.348556942409939e-05,
+     "t1_jst": "11/19 19:00",
+     "t2_jst": "11/23 17:00"
+    }
+   },
+   "trend_now": 1.31353,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-19T10:00:00+00:00",
+     "p1": 1.31728,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 1.31442,
+     "slope": -6.348556942409939e-05,
+     "t1_jst": "11/19 19:00",
+     "t2_jst": "11/23 17:00"
+    },
+    "remove_t": false,
+    "keep_broken": null,
+    "expire_broken": [
+     {
+      "kind": "down",
+      "t1": "2026-11-19T10:00:00+00:00",
+      "p1": 1.3172800540924072,
+      "t2": "2026-11-20T13:00:00+00:00",
+      "p2": 1.3128011226654053,
+      "slope": -0.0001658863491482205,
+      "t1_jst": "11/19 19:00",
+      "t2_jst": "11/20 22:00",
+      "broken_day": "2026-11-23"
+     }
+    ]
+   },
+   "morning": {
+    "bias": "SHORT",
+    "strength": "強",
+    "note": "",
+    "price": 1.30368,
+    "score": -5,
+    "d1_trend": -2,
+    "h4_trend": -2,
+    "structure": -1,
+    "invalid_level": 1.31442,
+    "prev_day": {
+     "Open": 1.30957,
+     "High": 1.31442,
+     "Low": 1.30115,
+     "Close": 1.30322
+    },
+    "ema20_d1": 1.32365,
+    "ema75_d1": 1.33325
+   },
+   "night": {
+    "status": "維持",
+    "side": "WAIT",
+    "reason": "RRが1.5未満"
+   }
+  },
+  {
+   "symbol": "EURJPY",
+   "digits": 3,
+   "source": "yfinance",
+   "price": 173.316,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 1.186,
+   "atr_h1": 0.268,
+   "range_used_pct": 41.0,
+   "range_left": 69.5,
+   "ema20_h1": 173.895,
+   "ema75_h1": 174.526,
+   "ema200_h1": 175.289,
+   "ema20_h4": 174.551,
+   "ema75_h4": 175.628,
+   "ema200_h4": 176.715,
+   "trend_h1": -2,
+   "trend_h4": -2,
+   "trend_score": -4,
+   "levels": {
+    "prev_high": 175.046,
+    "prev_low": 173.202,
+    "today_high": 173.433,
+    "today_low": 172.942,
+    "prev_week_high": 176.196,
+    "prev_week_low": 173.732,
+    "pivot": 173.866,
+    "r1": 174.529,
+    "s1": 172.685,
+    "r2": 175.71,
+    "s2": 172.022,
+    "round_below": 173.0,
+    "round_above": 173.5,
+    "major0": 175.065,
+    "major1": 176.15,
+    "major2": 177.84
+   },
+   "long": {
+    "zone_lo": 173.202,
+    "zone_hi": 173.269,
+    "sl": 173.068,
+    "base_level": "prev_low",
+    "entry_mode": "wait",
+    "dist_pips": 4.7,
+    "tp": 173.433,
+    "tp_level": "today_high",
+    "rr": 1.18,
+    "dist_atr": 0.17,
+    "lots": 0.01
+   },
+   "short": {
+    "zone_lo": 173.366,
+    "zone_hi": 173.433,
+    "sl": 173.567,
+    "base_level": "today_high",
+    "entry_mode": "wait",
+    "dist_pips": 5.0,
+    "tp": 173.202,
+    "tp_level": "prev_low",
+    "rr": 1.18,
+    "dist_atr": 0.19,
+    "lots": 0.01
+   },
+   "code_side": "WAIT",
+   "score": 0,
+   "lines": {
+    "horizontal": [
+     175.065002,
+     176.149994,
+     177.839996
+    ],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 175.344,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 175.046,
+     "slope": -0.009612544890372984,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/23 17:00"
+    }
+   },
+   "trend_now": 174.911,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 175.344,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 175.046,
+     "slope": -0.009612544890372984,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/23 17:00"
+    },
+    "remove_t": false,
+    "keep_broken": null,
+    "expire_broken": [
+     {
+      "kind": "down",
+      "t1": "2026-11-20T00:00:00+00:00",
+      "p1": 175.343994140625,
+      "t2": "2026-11-20T14:00:00+00:00",
+      "p2": 174.54600524902344,
+      "slope": -0.05699920654296875,
+      "t1_jst": "11/20 09:00",
+      "t2_jst": "11/20 23:00",
+      "broken_day": "2026-11-23"
+     }
+    ]
+   },
+   "morning": {
+    "bias": "SHORT",
+    "strength": "強",
+    "note": "",
+    "price": 173.316,
+    "score": -5,
+    "d1_trend": -2,
+    "h4_trend": -2,
+    "structure": -1,
+    "invalid_level": 175.046,
+    "prev_day": {
+     "Open": 174.371,
+     "High": 175.046,
+     "Low": 173.202,
+     "Close": 173.349
+    },
+    "ema20_d1": 175.821,
+    "ema75_d1": 178.581
+   },
+   "night": {
+    "status": "維持",
+    "side": "WAIT",
+    "reason": "RRが1.5未満"
+   }
+  },
+  {
+   "symbol": "GBPJPY",
+   "digits": 3,
+   "source": "yfinance",
+   "price": 207.168,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 1.41,
+   "atr_h1": 0.328,
+   "range_used_pct": 29.0,
+   "range_left": 100.7,
+   "ema20_h1": 207.787,
+   "ema75_h1": 208.608,
+   "ema200_h1": 209.724,
+   "ema20_h4": 208.622,
+   "ema75_h4": 210.121,
+   "ema200_h4": 210.588,
+   "trend_h1": -2,
+   "trend_h4": -2,
+   "trend_score": -4,
+   "levels": {
+    "prev_high": 209.176,
+    "prev_low": 207.083,
+    "today_high": 207.276,
+    "today_low": 206.873,
+    "prev_week_high": 211.212,
+    "prev_week_low": 207.223,
+    "pivot": 207.82,
+    "r1": 208.558,
+    "s1": 206.465,
+    "r2": 209.913,
+    "s2": 205.727,
+    "round_below": 207.0,
+    "round_above": 207.5,
+    "major0": 207.083,
+    "major1": 208.189,
+    "major2": 209.114,
+    "major3": 209.516,
+    "major4": 210.201
+   },
+   "long": {
+    "zone_lo": 207.083,
+    "zone_hi": 207.165,
+    "sl": 206.919,
+    "base_level": "major0",
+    "entry_mode": "wait",
+    "dist_pips": 0.3,
+    "tp": 207.5,
+    "tp_level": "round_above",
+    "rr": 1.83,
+    "dist_atr": 0.01,
+    "lots": 0.01
+   },
+   "short": {
+    "zone_lo": 207.141,
+    "zone_hi": 207.223,
+    "sl": 207.387,
+    "base_level": "prev_week_low",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 206.873,
+    "tp_level": "today_low",
+    "rr": 1.51,
+    "dist_atr": 0.0,
+    "lots": 0.01
+   },
+   "code_side": "SHORT",
+   "score": 6,
+   "lines": {
+    "horizontal": [
+     207.082993,
+     208.188995,
+     209.113998,
+     209.516006,
+     210.201004
+    ],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 209.192,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 209.176,
+     "slope": -0.0005163377331149193,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/23 17:00"
+    }
+   },
+   "trend_now": 209.169,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 209.192,
+     "t2": "2026-11-23T08:00:00+00:00",
+     "p2": 209.176,
+     "slope": -0.0005163377331149193,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/23 17:00"
+    },
+    "remove_t": false,
+    "keep_broken": null,
+    "expire_broken": [
+     {
+      "kind": "down",
+      "t1": "2026-11-20T00:00:00+00:00",
+      "p1": 209.19200134277344,
+      "t2": "2026-11-20T15:00:00+00:00",
+      "p2": 208.32000732421875,
+      "slope": -0.0581329345703125,
+      "t1_jst": "11/20 09:00",
+      "t2_jst": "11/21 00:00",
+      "broken_day": "2026-11-23"
+     }
+    ]
+   },
+   "morning": {
+    "bias": "SHORT",
+    "strength": "強",
+    "note": "",
+    "price": 207.168,
+    "score": -5,
+    "d1_trend": -2,
+    "h4_trend": -2,
+    "structure": -1,
+    "invalid_level": 209.176,
+    "prev_day": {
+     "Open": 208.104,
+     "High": 209.176,
+     "Low": 207.083,
+     "Close": 207.202
+    },
+    "ema20_d1": 210.128,
+    "ema75_d1": 211.202
+   },
+   "night": {
+    "status": "維持",
+    "side": "SHORT",
+    "reason": ""
+   }
+  },
+  {
+   "symbol": "AUDUSD",
+   "digits": 5,
+   "source": "yfinance",
+   "price": 0.66322,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 0.0052,
+   "atr_h1": 0.00119,
+   "range_used_pct": 10.0,
+   "range_left": 46.8,
+   "ema20_h1": 0.66338,
+   "ema75_h1": 0.6664,
+   "ema200_h1": 0.67321,
+   "ema20_h4": 0.66646,
+   "ema75_h4": 0.67739,
+   "ema200_h4": 0.68877,
+   "trend_h1": -2,
+   "trend_h4": -2,
+   "trend_score": -4,
+   "levels": {
+    "prev_high": 0.66587,
+    "prev_low": 0.66011,
+    "today_high": 0.66331,
+    "today_low": 0.66278,
+    "prev_week_high": 0.67806,
+    "prev_week_low": 0.66124,
+    "pivot": 0.66299,
+    "r1": 0.66587,
+    "s1": 0.66012,
+    "r2": 0.66875,
+    "s2": 0.65723,
+    "round_below": 0.66,
+    "round_above": 0.665
+   },
+   "long": {
+    "zone_lo": 0.66299,
+    "zone_hi": 0.66329,
+    "sl": 0.6624,
+    "base_level": "pivot",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 0.665,
+    "tp_level": "round_above",
+    "rr": 2.51,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "short": {
+    "zone_lo": 0.66301,
+    "zone_hi": 0.66331,
+    "sl": 0.6639,
+    "base_level": "today_high",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 0.66124,
+    "tp_level": "prev_week_low",
+    "rr": 2.58,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "code_side": "SHORT",
+   "score": 6,
+   "lines": {
+    "horizontal": [],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-20T14:00:00+00:00",
+     "p1": 0.66729,
+     "t2": "2026-11-23T14:00:00+00:00",
+     "p2": 0.66587,
+     "slope": -6.18203826572584e-05,
+     "t1_jst": "11/20 23:00",
+     "t2_jst": "11/23 23:00"
+    }
+   },
+   "trend_now": 0.66537,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-20T14:00:00+00:00",
+     "p1": 0.66729,
+     "t2": "2026-11-23T14:00:00+00:00",
+     "p2": 0.66587,
+     "slope": -6.18203826572584e-05,
+     "t1_jst": "11/20 23:00",
+     "t2_jst": "11/23 23:00"
+    },
+    "remove_t": false,
+    "keep_broken": {
+     "kind": "down",
+     "t1": "2026-11-19T14:00:00+00:00",
+     "p1": 0.67209,
+     "t2": "2026-11-20T14:00:00+00:00",
+     "p2": 0.66729,
+     "slope": -0.00019994378089904785,
+     "t1_jst": "11/19 23:00",
+     "t2_jst": "11/20 23:00",
+     "broken_day": "2026-11-24"
+    },
+    "expire_broken": []
+   },
+   "morning": {
+    "bias": "SHORT",
+    "strength": "強",
+    "note": "",
+    "price": 0.66322,
+    "score": -4,
+    "d1_trend": -2,
+    "h4_trend": -2,
+    "structure": 0,
+    "invalid_level": 0.66587,
+    "prev_day": {
+     "Open": 0.66432,
+     "High": 0.66587,
+     "Low": 0.66011,
+     "Close": 0.663
+    },
+    "ema20_d1": 0.68161,
+    "ema75_d1": 0.69597
+   },
+   "night": {
+    "status": "維持",
+    "side": "SHORT",
+    "reason": ""
+   }
+  },
+  {
+   "symbol": "USDJPY",
+   "digits": 3,
+   "source": "yfinance",
+   "price": 158.981,
+   "last_bar_jst": "2026-11-24 07:00",
+   "stale": false,
+   "atr_d1": 0.911,
+   "atr_h1": 0.184,
+   "range_used_pct": 9.0,
+   "range_left": 82.5,
+   "ema20_h1": 159.08,
+   "ema75_h1": 159.177,
+   "ema200_h1": 159.169,
+   "ema20_h4": 159.16,
+   "ema75_h4": 159.029,
+   "ema200_h4": 158.509,
+   "trend_h1": -1,
+   "trend_h4": 1,
+   "trend_score": 0,
+   "levels": {
+    "prev_high": 159.503,
+    "prev_low": 158.788,
+    "today_high": 159.008,
+    "today_low": 158.922,
+    "prev_week_high": 159.97,
+    "prev_week_low": 158.408,
+    "pivot": 159.1,
+    "r1": 159.413,
+    "s1": 158.698,
+    "r2": 159.815,
+    "s2": 158.385,
+    "round_below": 158.5,
+    "round_above": 159.0,
+    "major0": 157.249,
+    "major1": 157.544,
+    "major2": 158.012,
+    "major3": 158.604,
+    "major4": 158.95,
+    "major5": 159.516,
+    "major6": 160.188,
+    "major7": 160.466
+   },
+   "long": {
+    "zone_lo": 158.95,
+    "zone_hi": 158.996,
+    "sl": 158.858,
+    "base_level": "major4",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 159.1,
+    "tp_level": "pivot",
+    "rr": 1.11,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "short": {
+    "zone_lo": 158.954,
+    "zone_hi": 159.0,
+    "sl": 159.092,
+    "base_level": "round_above",
+    "entry_mode": "now",
+    "dist_pips": 0.0,
+    "tp": 158.788,
+    "tp_level": "prev_low",
+    "rr": 1.65,
+    "dist_atr": 0.0,
+    "lots": 0.02
+   },
+   "code_side": "WAIT",
+   "score": 0,
+   "lines": {
+    "horizontal": [
+     157.248993,
+     157.544006,
+     158.011993,
+     158.604004,
+     158.949997,
+     159.516006,
+     160.188004,
+     160.466003
+    ],
+    "trend": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 159.841,
+     "t2": "2026-11-23T16:00:00+00:00",
+     "p2": 159.503,
+     "slope": -0.008894669382195724,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/24 01:00"
+    }
+   },
+   "trend_now": 159.45,
+   "trend_broken": false,
+   "line_changes": {
+    "first": false,
+    "add_h": [
+     160.466003
+    ],
+    "remove_h": [],
+    "add_t": {
+     "kind": "down",
+     "t1": "2026-11-20T00:00:00+00:00",
+     "p1": 159.841,
+     "t2": "2026-11-23T16:00:00+00:00",
+     "p2": 159.503,
+     "slope": -0.008894669382195724,
+     "t1_jst": "11/20 09:00",
+     "t2_jst": "11/24 01:00"
+    },
+    "remove_t": false,
+    "keep_broken": null,
+    "expire_broken": []
+   },
+   "morning": {
+    "bias": "LONG",
+    "strength": "弱",
+    "note": "",
+    "price": 158.981,
+    "score": 3,
+    "d1_trend": 2,
+    "h4_trend": 1,
+    "structure": 0,
+    "invalid_level": 158.788,
+    "prev_day": {
+     "Open": 158.939,
+     "High": 159.503,
+     "Low": 158.788,
+     "Close": 159.01
+    },
+    "ema20_d1": 158.779,
+    "ema75_d1": 158.437
+   },
+   "night": {
+    "status": "弱まった",
+    "side": "WAIT",
+    "reason": "1時間足が揃っていない"
+   }
+  }
+ ],
+ "errors": [],
+ "text": "【朝 07:45　今日の方向】\n・EURUSD：ショート（強）　点数-5／撤退ライン 1.10084\n・GBPUSD：ショート（強）　点数-5／撤退ライン 1.31442\n・EURJPY：ショート（強）　点数-5／撤退ライン 175.046\n・GBPJPY：ショート（強）　点数-5／撤退ライン 209.176\n・AUDUSD：ショート（強）　点数-4／撤退ライン 0.66587\n・USDJPY：ロング（弱）　点数+3／撤退ライン 158.788\n［スマホのMT5で引いておく線］（色：日足の水平線＝白・実線／1時間足のトレンド線＝緑・実線／割れたトレンド線＝灰色）\n・EURUSD\n  灰色に変えて残す：割れたトレンド線 11/19 19:00→11/20 22:00（戻ってきたら今度は下値を支える壁になりやすい。明日まで）\n  引く：トレンド線（1時間足・緑・実線）11/19 19:00 1.10132 → 11/23 16:00 1.10084（下降・今は1.10067付近）\n・GBPUSD\n  消す：灰色の割れたトレンド線 11/19 19:00→11/20 22:00（役目終了）\n  引く：トレンド線（1時間足・緑・実線）11/19 19:00 1.31728 → 11/23 17:00 1.31442（下降・今は1.31353付近）\n・EURJPY\n  消す：灰色の割れたトレンド線 11/20 09:00→11/20 23:00（役目終了）\n  引く：トレンド線（1時間足・緑・実線）11/20 09:00 175.344 → 11/23 17:00 175.046（下降・今は174.911付近）\n・GBPJPY\n  消す：灰色の割れたトレンド線 11/20 09:00→11/21 00:00（役目終了）\n  引く：トレンド線（1時間足・緑・実線）11/20 09:00 209.192 → 11/23 17:00 209.176（下降・今は209.169付近）\n・AUDUSD\n  灰色に変えて残す：割れたトレンド線 11/19 23:00→11/20 23:00（戻ってきたら今度は下値を支える壁になりやすい。明日まで）\n  引く：トレンド線（1時間足・緑・実線）11/20 23:00 0.66729 → 11/23 23:00 0.66587（下降・今は0.66537付近）\n・USDJPY\n  引く（水平線・白・実線）：160.466\n  引く：トレンド線（1時間足・緑・実線）11/20 09:00 159.841 → 11/24 01:00 159.503（下降・今は159.450付近）\n［時間割］\n  23:30 NY株式市場オープン（値動きが出やすい）\n  01:00 ロンドンフィックス（急な値動きに注意）\n［前日(11-23)の答え合わせ］\n  朝の方向：的中4・外れ0・判定外1\n  夜の推奨2件：利確0・損切り1・未到達1・決着なし0\n※水準は無料データ基準。発注前に自分のチャートで確認"
+}

@@ -1,0 +1,122 @@
+{
+ "trade_day": "2026-11-24",
+ "created_jst": "2026-11-24 07:45",
+ "created_utc": "2026-11-23T22:45:54.306230+00:00",
+ "pairs": {
+  "USDJPY": {
+   "bias": "LONG",
+   "strength": "弱",
+   "note": "",
+   "price": 158.981,
+   "score": 3,
+   "d1_trend": 2,
+   "h4_trend": 1,
+   "structure": 0,
+   "invalid_level": 158.788,
+   "prev_day": {
+    "Open": 158.939,
+    "High": 159.503,
+    "Low": 158.788,
+    "Close": 159.01
+   },
+   "ema20_d1": 158.779,
+   "ema75_d1": 158.437
+  },
+  "EURUSD": {
+   "bias": "SHORT",
+   "strength": "強",
+   "note": "",
+   "price": 1.09051,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 1.10084,
+   "prev_day": {
+    "Open": 1.09757,
+    "High": 1.10084,
+    "Low": 1.08849,
+    "Close": 1.09051
+   },
+   "ema20_d1": 1.10775,
+   "ema75_d1": 1.12758
+  },
+  "GBPUSD": {
+   "bias": "SHORT",
+   "strength": "強",
+   "note": "",
+   "price": 1.30368,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 1.31442,
+   "prev_day": {
+    "Open": 1.30957,
+    "High": 1.31442,
+    "Low": 1.30115,
+    "Close": 1.30322
+   },
+   "ema20_d1": 1.32365,
+   "ema75_d1": 1.33325
+  },
+  "AUDUSD": {
+   "bias": "SHORT",
+   "strength": "強",
+   "note": "",
+   "price": 0.66322,
+   "score": -4,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": 0,
+   "invalid_level": 0.66587,
+   "prev_day": {
+    "Open": 0.66432,
+    "High": 0.66587,
+    "Low": 0.66011,
+    "Close": 0.663
+   },
+   "ema20_d1": 0.68161,
+   "ema75_d1": 0.69597
+  },
+  "EURJPY": {
+   "bias": "SHORT",
+   "strength": "強",
+   "note": "",
+   "price": 173.316,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 175.046,
+   "prev_day": {
+    "Open": 174.371,
+    "High": 175.046,
+    "Low": 173.202,
+    "Close": 173.349
+   },
+   "ema20_d1": 175.821,
+   "ema75_d1": 178.581
+  },
+  "GBPJPY": {
+   "bias": "SHORT",
+   "strength": "強",
+   "note": "",
+   "price": 207.168,
+   "score": -5,
+   "d1_trend": -2,
+   "h4_trend": -2,
+   "structure": -1,
+   "invalid_level": 209.176,
+   "prev_day": {
+    "Open": 208.104,
+    "High": 209.176,
+    "Low": 207.083,
+    "Close": 207.202
+   },
+   "ema20_d1": 210.128,
+   "ema75_d1": 211.202
+  }
+ },
+ "night_recs": []
+}
