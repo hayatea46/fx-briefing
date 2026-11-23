@@ -6,7 +6,7 @@
   "GBPUSD": {"direction": "WAIT", "reason": "下向きはそろっているが、利益と損失の比が小さく、戻りを待つほうが安全"},
   "EURJPY": {"direction": "WAIT", "reason": "下向きだが今日の値幅をすでに多めに使い、利益と損失の比も小さい"},
   "GBPJPY": {"direction": "SHORT", "reason": "全時間足が下向きで、利益と損失の比も条件を満たす。夜の米指標前後の急変には注意"},
-  "AUDUSD": {"direction": "SHORT", "reason": "全時間足が下向きで値幅の余地が大きい。昨日の失敗を受け、引いた線での反発確認を条件に"},
+  "AUDUSD": {"direction": "SHORT", "reason": "全時間足が下向きで値幅の余地が大きい。戻りが引いた線で止まるのを確かめてから"},
   "USDJPY": {"direction": "WAIT", "reason": "朝はロング（弱）だが1時間足は下向きで上下が食い違う。上に下降トレンド線もあり見送り"}
  }
 }
