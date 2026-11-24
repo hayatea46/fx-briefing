@@ -1,0 +1,7 @@
+{"trade_day":"2026-11-25","generated_jst":"2026-11-25 07:55","pairs":{
+"USDJPY":{"direction":"LONG","reason":"1時間足・4時間足・日足がそろって上向き。ただし夜の米物価・GDP発表と、円買い介入が意識されやすい水準には注意"},
+"AUDUSD":{"direction":"WAIT","reason":"流れは下向きだが、朝の豪州消費者物価が予想より高いと豪ドル買いが出やすく、発表後の動きを見てからが無難"},
+"EURUSD":{"direction":"WAIT","reason":"下向きだが強さは（弱）で、前日は朝の方向の外れが多かった。夜の米指標前に無理をしない"},
+"GBPUSD":{"direction":"WAIT","reason":"下向きだが強さは（弱）。米指標で大きく振れやすい日"},
+"EURJPY":{"direction":"WAIT","reason":"下向きだが（弱）。ドル円は上向きで、円の動きが割れている"},
+"GBPJPY":{"direction":"WAIT","reason":"下向きだが（弱）。ドル円の上向きと食い違い、方向が出にくい"}}}
