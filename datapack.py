@@ -715,7 +715,19 @@ def main():
     mode = scheduled_mode(now_jst) if not os.environ.get("MODE") else pick_mode(now_jst)
     if mode is None:
         return
-    trade_day = (now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
+    # 毎時：同じ時刻（毎時03分区切り）の通知が済んでいれば何もしない（夜ループが2本動いた時の2重通知を防ぐ）
+    slot_jst = None
+    if mode == "hourly":
+        slot = now_jst.replace(minute=3, second=0, microsecond=0)
+        if slot > now_jst:
+            slot -= timedelta(hours=1)
+        slot_jst = slot.strftime("%Y-%m-%d %H:%M")
+        if os.path.exists("docs/hourly.json"):
+            done = json.load(open("docs/hourly.json", encoding="utf-8")).get("slot_jst")
+            if done == slot_jst:
+                print(f"skip: {slot_jst} の毎時通知は送信済み")
+                return
+    trade_day =(now_jst - timedelta(hours=6)).strftime("%Y-%m-%d")   # 深夜1時台は前日扱い
     state_path = f"docs/state/{trade_day}.json"
     errors = []
     data, rates = load_data(errors)
@@ -843,6 +855,7 @@ def main():
         pairs.sort(key=lambda p: (order[p["night"]["side"]], p["night"]["status"] not in ("維持", "弱まった"),
                                   -abs(p["morning"]["score"])))
     pack = {"mode": mode, "trade_day": trade_day, "generated_jst": now_jst.strftime("%Y-%m-%d %H:%M"),
+            "slot_jst": slot_jst,
             "equity_jpy": CFG["equity_jpy"], "risk_pct": CFG["risk_pct"], "rules_version": CFG["rules_version"],
             "risk_per_trade_jpy": round(CFG["equity_jpy"] * CFG["risk_pct"] / 100),
             "daily_stop": {"losing_streak": CFG["daily_stop_streak"], "loss_jpy": round(CFG["equity_jpy"] * CFG["daily_stop_pct"] / 100)},

@@ -1,0 +1,70 @@
+name: night
+# 夜ループ：1回の実行で 夕方（未作成なら）→ 20:03〜翌01:03 の毎時通知 までを行う。
+# 主な起動は 19:20 の夕方配信タスクからの workflow_dispatch。cron は予備（GitHubの定期実行は遅れ・抜けが多い）。
+on:
+  schedule:
+    - cron: "53 9 * * 1-5"    # 予備 18:53(日本時間)
+    - cron: "13 10 * * 1-5"   # 予備 19:13
+  workflow_dispatch:
+permissions:
+  contents: write
+# 2本目以降は1本目が終わるまで待機（待機中に次が来たら古い待機分は取り消し）。
+# 1本目が時間切れで01:03に届かない時は、待機していた分が残りの時刻を受け持つ
+concurrency:
+  group: night
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: 夜ループ
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          set -u
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          deadline=$(( $(date +%s) + 340*60 ))   # timeout 350分の手前で自分から終える
+          sync() {
+            git add docs
+            git commit -q -m "$1" || echo "no change"
+            for i in 1 2 3; do
+              git pull -q --rebase && git push -q && return 0
+              sleep 10
+            done
+            echo "push failed"
+          }
+          jst() { TZ=JST-9 date "$@"; }   # 日本時間（夏時間なし）
+
+          # 今夜の日付（深夜0〜5時台は前日の夜として扱う）
+          base=$(jst -d '-6 hours' +%F)
+          next=$(jst -d "$base +1 day" +%F)
+          dow=$(jst -d "$base" +%u)
+          if [ "$dow" -ge 6 ]; then echo "土日の夜なので何もしない"; exit 0; fi
+
+          # 夕方：今日の分がまだ無く、20:03より前なら作る
+          git pull -q --rebase
+          hm=$(jst +%H%M)
+          if [ "$hm" -ge 1700 ] && [ "$hm" -lt 2003 ] && \
+             ! grep -q "\"generated_jst\": \"$base" docs/evening.json 2>/dev/null; then
+            MODE=evening python datapack.py || echo "evening failed"
+            sync "night evening $(jst +%F_%H%M)"
+          fi
+
+          for t in "$base 20:03" "$base 21:03" "$base 22:03" "$base 23:03" "$next 00:03" "$next 01:03"; do
+            target=$(jst -d "$t" +%s)
+            now=$(date +%s)
+            if [ "$now" -gt $(( target + 40*60 )) ]; then echo "$t は40分以上過ぎたので飛ばす"; continue; fi
+            if [ "$target" -gt "$deadline" ]; then echo "$t は時間切れ前に届かないので終了（待機中の次の実行に任せる）"; break; fi
+            if [ "$now" -lt "$target" ]; then echo "$t まで $(( (target - now) / 60 ))分待つ"; sleep $(( target - now )); fi
+            git pull -q --rebase
+            MODE=hourly python datapack.py || echo "hourly failed"
+            sync "night hourly $(jst +%F_%H%M)"
+          done
