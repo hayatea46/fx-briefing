@@ -1,0 +1,7 @@
+{"trade_day":"2026-11-26","generated_jst":"2026-11-26 07:55","pairs":{
+"USDJPY":{"direction":"WAIT","reason":"日足・4時間足は上向きだが1時間足が下向きでそろわない。米感謝祭で薄商い、介入警戒も続く"},
+"EURUSD":{"direction":"WAIT","reason":"日足は下向きだが1時間足は上向きで（弱）。米国休場で動きが出にくい"},
+"GBPUSD":{"direction":"WAIT","reason":"日足は下向きだが1時間足は上向き。米国休場で方向が出にくい"},
+"AUDUSD":{"direction":"WAIT","reason":"1時間足・4時間足とも下向きだが、狙える値幅が小さく、米国休場の薄商い"},
+"EURJPY":{"direction":"WAIT","reason":"日足は下向きだが1時間足は上向きで食い違い。（弱）で無理をしない"},
+"GBPJPY":{"direction":"WAIT","reason":"日足は下向きだが1時間足は上向きで食い違い。薄商いで急な振れに注意"}}}
