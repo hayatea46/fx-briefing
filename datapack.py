@@ -434,7 +434,8 @@ def review_day(state: dict, data: dict) -> dict:
         thr = 0.2 * float(atr(to_daily(data[name])).loc[:pd.Timestamp(day)].iloc[-2])
         sign = 1 if m["bias"] == "LONG" else -1
         res = "判定外" if abs(move) < thr else ("的中" if move * sign > 0 else "外れ")
-        morning.append({"symbol": name, "bias": m["bias"], "result": res})
+        st = m.get("strength") or ("強" if abs(m.get("score", 0)) >= 4 else "弱")
+        morning.append({"symbol": name, "bias": m["bias"], "strength": st, "result": res})
     for r in state.get("night_recs", []):
         if r["symbol"] not in data:
             continue
@@ -513,6 +514,44 @@ def schedule_lines(pack: dict, upcoming_only: bool) -> list:
         extra = f"→ {x['no_entry']}は入らない" if x.get("no_entry") else ""
         out.append(f"  {x['time_jst'][6:]} {x['title']}{extra}")
     return out
+
+
+def track_record(trade_day: str, data: dict) -> dict:
+    """これまでの朝の方向を（強）（弱）別に集計。判定外は数えない"""
+    out = {"強": {"hit": 0, "miss": 0}, "弱": {"hit": 0, "miss": 0}, "days": 0}
+    if not os.path.isdir("docs/state"):
+        return out
+    for f in sorted(os.listdir("docs/state")):
+        if not f.endswith(".json") or f[:-5] >= trade_day:
+            continue
+        st = json.load(open(f"docs/state/{f}", encoding="utf-8"))
+        try:
+            rv = review_day(dict(st, night_recs=[]), data)
+        except Exception:
+            continue
+        out["days"] += 1
+        for x in rv["morning"]:
+            if x["result"] == "的中":
+                out[x["strength"]]["hit"] += 1
+            elif x["result"] == "外れ":
+                out[x["strength"]]["miss"] += 1
+    for k in ("強", "弱"):
+        n = out[k]["hit"] + out[k]["miss"]
+        out[k]["n"] = n
+        out[k]["rate_pct"] = round(out[k]["hit"] / n * 100) if n else None
+    return out
+
+
+def track_lines(tr: dict | None) -> list:
+    if not tr or not tr.get("days"):
+        return []
+    def one(k):
+        x = tr[k]
+        if not x["n"]:
+            return f"{k}：まだなし"
+        return f"{k}：的中{x['hit']}・外れ{x['miss']}（的中率{x['rate_pct']}%・{x['n']}件）"
+    note = "　※各30件そろうまでは参考" if min(tr["強"]["n"], tr["弱"]["n"]) < 30 else ""
+    return [f"［これまでの朝の方向（{tr['days']}日分・判定外は除く）］", f"  {one('強')}／{one('弱')}{note}"]
 
 
 def review_lines(rv: dict | None) -> list:
@@ -601,7 +640,7 @@ def build_text(pack: dict) -> str:
             else:
                 lines.append(f"・{p['symbol']}：{bias_label(m)}　点数{m['score']:+d}／撤退ライン {fmt(p, m['invalid_level'])}")
         lines += draw_lines(pack)
-        lines += schedule_lines(pack, False) + review_lines(pack.get("review"))
+        lines += schedule_lines(pack, False) + review_lines(pack.get("review")) + track_lines(pack.get("track"))
     else:
         live = [p for p in pairs if p["night"]["status"] in ("維持", "弱まった")]
         recs = [p for p in pairs if p["night"]["side"] != "WAIT"]
@@ -747,7 +786,7 @@ def main():
             errors.append("朝の方向が未作成だったため、いま作成")
     since = datetime.fromisoformat(state["created_utc"])
 
-    review, prev = None, None
+    review, prev, track = None, None, None
     if mode == "morning":
         prev = previous_state(trade_day)
         if prev:
@@ -755,6 +794,11 @@ def main():
                 review = review_day(prev, data)
             except Exception as ex:
                 errors.append(f"review: {ex}")
+        try:
+            track = track_record(trade_day, data)
+        except Exception as ex:
+            track = None
+            errors.append(f"track: {ex}")
 
     lines_path = "docs/lines.json"
     lines_db = json.load(open(lines_path, encoding="utf-8")) if os.path.exists(lines_path) else {}
@@ -862,7 +906,7 @@ def main():
             "peak_stop_jpy": round(CFG["equity_jpy"] * 0.15),
             "macro": macro, "events": events, "schedule": build_schedule(events, trade_day),
             "warnings": overlap_warnings(pairs) if mode == "hourly" else [],
-            "review": review, "pairs": pairs, "errors": errors}
+            "review": review, "track": track, "pairs": pairs, "errors": errors}
     if not pairs:
         print("データ取得に全部失敗したため、保存も通知もしない:", " / ".join(errors))
         sys.exit(1)
