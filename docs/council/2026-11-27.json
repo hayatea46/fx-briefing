@@ -1,0 +1,30 @@
+{
+ "trade_day": "2026-11-27",
+ "generated_jst": "2026-11-27 08:00",
+ "pairs": {
+  "USDJPY": {
+   "direction": "LONG",
+   "reason": "1時間足・4時間足とも上向きで朝の方向とも一致。ただし薄商いと介入警戒（円買いの急変）に注意"
+  },
+  "EURUSD": {
+   "direction": "WAIT",
+   "reason": "1時間足が上、4時間足が下で食い違い。ブラックフライデーで値動きが読みにくい"
+  },
+  "GBPUSD": {
+   "direction": "WAIT",
+   "reason": "1時間足と4時間足が食い違い。薄商い"
+  },
+  "AUDUSD": {
+   "direction": "WAIT",
+   "reason": "1時間足が上向きに変わり、ショート方向と食い違い"
+  },
+  "EURJPY": {
+   "direction": "WAIT",
+   "reason": "足の向きが揃わず、東京CPIで円が動く可能性"
+  },
+  "GBPJPY": {
+   "direction": "WAIT",
+   "reason": "足の向きが揃わず、東京CPIで円が動く可能性"
+  }
+ }
+}
