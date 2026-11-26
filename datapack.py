@@ -8,6 +8,7 @@ import json
 import math
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -668,16 +669,28 @@ def build_text(pack: dict) -> str:
     return "\n".join(lines)
 
 
-def push(title: str, text: str):
+def push(title: str, text: str) -> str:
+    """ntfyへ送る。一時的な失敗に備えて最大3回。結果の文字列を返す（記録用）"""
+    import time
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     if not topic:
         print("ntfy: NTFY_TOPIC が空のため通知しません（GitHubのSecretsを確認）")
-        return
+        return "skip: NTFY_TOPIC empty"
     body = json.dumps({"topic": topic, "title": title, "message": text}).encode()
-    print(f"ntfy: 送信 {len(body)}バイト（topic {len(topic)}文字）")
-    res = urllib.request.urlopen(urllib.request.Request("https://ntfy.sh/", data=body,
-                                 headers={"Content-Type": "application/json"}), timeout=30)
-    print("ntfy:", res.status, res.read().decode()[:300])
+    last = ""
+    for i in range(3):
+        try:
+            res = urllib.request.urlopen(urllib.request.Request("https://ntfy.sh/", data=body,
+                                         headers={"Content-Type": "application/json"}), timeout=30)
+            print("ntfy:", res.status, f"{len(body)}バイト")
+            return f"ok {res.status} (try {i + 1})"
+        except urllib.error.HTTPError as ex:
+            last = f"HTTP {ex.code} {ex.read().decode(errors='replace')[:200]}"
+        except Exception as ex:
+            last = f"{type(ex).__name__}: {ex}"
+        print(f"ntfy: 失敗 {i + 1}回目 {last}")
+        time.sleep(5 * (i + 1))
+    return f"failed: {last}"
 
 # ---------------------------------------------------------------- 実行
 def pick_mode(now_jst: datetime) -> str:
@@ -919,9 +932,14 @@ def main():
     if mode in ("hourly", "morning", "evening"):
         label = {"morning": "朝", "evening": "夕方"}.get(mode, "")
         try:
-            push(f"FX {label}{now_jst:%H:%M}", pack["text"])
+            pack["push_result"] = push(f"FX {label}{now_jst:%H:%M}", pack["text"])
         except Exception as ex:
+            pack["push_result"] = f"failed: {type(ex).__name__}: {ex}"
             print("push failed:", ex)
+        # 送信結果も記録しておく（ログを見なくても失敗理由が分かるように）
+        for path in (f"docs/{mode}.json", "docs/datapack.json",
+                     f"docs/archive/{trade_day}_{now_jst:%H%M}_{mode}.json"):
+            json.dump(pack, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     if not pairs:
         sys.exit(1)
 
