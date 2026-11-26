@@ -118,5 +118,16 @@
    "ema75_d1": 211.063
   }
  },
- "night_recs": []
+ "night_recs": [
+  {
+   "symbol": "AUDUSD",
+   "side": "SHORT",
+   "zone_lo": 0.66477,
+   "zone_hi": 0.665,
+   "sl": 0.66547,
+   "tp": 0.66269,
+   "time_utc": "2026-11-26T11:03:01.272621+00:00",
+   "time_jst": "20:03"
+  }
+ ]
 }
